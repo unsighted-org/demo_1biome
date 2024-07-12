@@ -1,0 +1,144 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "United States of America",
+        "continent": "North America"
+      },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [-125, 48],
+              [-125, 32],
+              [-114, 32],
+              [-114, 48],
+              [-125, 48]
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Canada",
+        "continent": "North America"
+      },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [-140, 70],
+              [-140, 42],
+              [-52, 42],
+              [-52, 70],
+              [-140, 70]
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Mexico",
+        "continent": "North America"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-118, 33],
+            [-118, 14],
+            [-86, 14],
+            [-86, 33],
+            [-118, 33]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Brazil",
+        "continent": "South America"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-74, 5],
+            [-74, -34],
+            [-34, -34],
+            [-34, 5],
+            [-74, 5]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "United Kingdom",
+        "continent": "Europe"
+      },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [-5, 50],
+              [-5, 58],
+              [2, 58],
+              [2, 50],
+              [-5, 50]
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "France",
+        "continent": "Europe"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-5, 42],
+            [-5, 51],
+            [8, 51],
+            [8, 42],
+            [-5, 42]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Germany",
+        "continent": "Europe"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [6, 47],
+            [6, 55],
+            [15, 55],
+            [15, 47],
+            [6, 47]
+          ]
+        ]
+      }
+    }
+  ]
+}
