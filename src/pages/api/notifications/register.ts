@@ -23,7 +23,7 @@ export default async function handler(
 
   const { endpoint, keys } = req.body;
 
-  console.log('Received subscription data:', { endpoint, keys }); // Add this line
+  console.log('Received subscription data:', { endpoint, keys });
 
   if (!endpoint || !keys || !keys.p256dh || !keys.auth) {
     return res.status(400).json({ error: 'Missing required subscription fields' });
@@ -47,6 +47,10 @@ export default async function handler(
     res.status(200).json({ message: 'Successfully registered for notifications' });
   } catch (error) {
     console.error('Error registering for notifications:', error);
-    res.status(500).json({ error: 'Failed to register for notifications', details: error.message });
+    if (error instanceof Error) {
+      res.status(500).json({ error: 'Failed to register for notifications', details: error.message });
+    } else {
+      res.status(500).json({ error: 'Failed to register for notifications', details: 'An unknown error occurred' });
+    }
   }
 }
