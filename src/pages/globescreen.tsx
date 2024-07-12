@@ -35,30 +35,20 @@ interface GlobePageProps {
 
 const GlobePage: NextPage<GlobePageProps> = ({ initialHealthData }: GlobePageProps) => {
   const { user, loading: authLoading } = useAuth();
-  const { loading, error, fetchHealthData, healthData, subscribeToHealthData } = useHealthData(user);
+  const { loading, error, fetchHealthData, healthData, healthScores, regionalComparison } = useHealthData(user);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const router = useRouter();
 
   useEffect(() => {
-  if (!authLoading && !user) {
-    router.push('/login');
-  } else if (user && user.token && healthData.length === 0) {
-    fetchHealthData(1).catch((error) => {
-      console.error('Failed to fetch health data:', error);
-    });
-  }
-  }, [user, authLoading, fetchHealthData, healthData, router]);
-
-  useEffect(() => {
-    if (user) {
-      const handleUnsubscribe = async () => {
-        const unsubscribe = await subscribeToHealthData();
-        if (unsubscribe) unsubscribe();
-      };
-      handleUnsubscribe();
+    if (!authLoading && !user) {
+      router.push('/login');
+    } else if (user && healthData.length === 0) {
+      fetchHealthData(1).catch((error) => {
+        console.error('Failed to fetch health data:', error);
+      });
     }
-  }, [user, subscribeToHealthData]);
+  }, [user, authLoading, fetchHealthData, healthData, router]);
 
   if (authLoading || loading) {
     return (
@@ -106,13 +96,9 @@ const GlobePage: NextPage<GlobePageProps> = ({ initialHealthData }: GlobePagePro
         <Grid item xs={12} md={8}>
           {healthData.length > 0 ? (
             <Box sx={{ height: '60vh', minHeight: '400px' }}>
-              <AnimatedGlobe 
-                healthData={healthData} 
-                isLoading={loading} 
-                error={error}
-              />
+              <AnimatedGlobe healthData={healthData} isLoading={loading} error={error} />
             </Box>
-           ) : (
+          ) : (
             <Box display="flex" justifyContent="center" alignItems="center" height="60vh" minHeight="400px">
               <Typography variant="h6">No health data available. Start tracking to see your globe!</Typography>
             </Box>
