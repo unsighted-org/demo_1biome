@@ -1,103 +1,77 @@
-// src/hooks/useHealthData.ts
-import { useState, useCallback, useEffect } from 'react';
-import { useAppDispatch, useAppSelector } from '@/store';
-import healthServiceInstance from '@/services/HealthService';
-import { updateHealthData, updateHealthScores, updateRegionalComparison } from '@/store';
-import type { HealthEnvironmentData, HealthScores, RegionalComparison } from '@/types';
+import { useState, useEffect, useCallback } from 'react';
+import healthServiceInstance from '../services/HealthService'; // Adjust the import path as necessary
+import type { HealthEnvironmentData, UserState } from '@/types';
 
-interface UseHealthDataReturn {
-  loading: boolean;
-  error: string | null;
-  fetchHealthData: (pageNumber: number) => Promise<void>;
-  healthData: HealthEnvironmentData[];
-  healthScores: HealthScores | null;
-  regionalComparison: RegionalComparison | null;
+interface PaginatedHealthData {
+  data: HealthEnvironmentData[];
+  totalPages: number;
+  currentPage: number;
 }
 
-export const useHealthData = (user: { token: string } | null): UseHealthDataReturn => {
-  const dispatch = useAppDispatch();
+export const useHealthData = (user: UserState | null) => {
+  const [healthData, setHealthData] = useState<HealthEnvironmentData[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
-  const healthData = useAppSelector(state => state.health.data);
-  const healthScores = useAppSelector(state => state.health.scores);
-  const regionalComparison = useAppSelector(state => state.health.regionalComparison);
 
-  const fetchHealthData = useCallback(async (pageNumber: number) => {
-    if (!user?.token) return;
+  useEffect(() => {
+    if (user) {
+      healthServiceInstance.setToken(user.token);
+    }
+  }, [user]);
+
+  const fetchHealthData = useCallback(async (page: number = 1) => {
+    if (!user || !user.token) {
+      setError('User not authenticated');
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      console.log('Fetching health data...');
-      healthServiceInstance.setToken(user.token);
-      const paginatedData = await healthServiceInstance.getPaginatedHealthData(pageNumber);
-      console.log('Health data fetched:', paginatedData);
-      dispatch(updateHealthData(paginatedData.data));
-      if (paginatedData.data.length > 0) {
-        const latestData = paginatedData.data[paginatedData.data.length - 1];
-        const scores: HealthScores = {
-          _id: latestData._id,
-          userId: latestData.userId,
-          cardioHealthScore: latestData.cardioHealthScore,
-          respiratoryHealthScore: latestData.respiratoryHealthScore,
-          physicalActivityScore: latestData.physicalActivityScore,
-          environmentalImpactScore: latestData.environmentalImpactScore,
-          timestamp: latestData.timestamp
-        };
-        dispatch(updateHealthScores(scores));
-        const comparison: RegionalComparison = {
-          _id: latestData.environmentalId || 'placeholder-id',
-          regionId: latestData.regionId,
-          averageEnvironmentalImpactScore: latestData.environmentalImpactScore,
-          topEnvironmentalConcerns: [latestData.airQualityDescription, latestData.uvIndexDescription, latestData.noiseLevelDescription].filter(Boolean),
-          timestamp: latestData.timestamp
-        };
-        dispatch(updateRegionalComparison(comparison));
-      }
+      const paginatedData = await healthServiceInstance.getPaginatedHealthData(page);
+      setHealthData(prevData => [...prevData, ...paginatedData.data]);
     } catch (err) {
-      console.error('Error fetching health data:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch health data');
+      setError(err instanceof Error ? err.message : 'An error occurred while fetching health data');
     } finally {
       setLoading(false);
     }
-  }, [dispatch, user]);
+  }, [user]);
 
-  useEffect(() => {
-    if (user?.token) {
-      const unsubscribePromise = healthServiceInstance.subscribeToHealthData(
-        (newData: HealthEnvironmentData) => {
-          dispatch(updateHealthData([newData]));
-        },
-        (error: Error) => {
-          console.error('Health data subscription error:', error);
-          setError('Error receiving real-time updates. Please refresh the page.');
-        }
-      );
-      return () => {
-        if (unsubscribePromise) {
-          unsubscribePromise.then(unsubscribe => {
-            if (typeof unsubscribe === 'function') {
-              unsubscribe();
-            }
-          }).catch(err => {
-            console.error('Error unsubscribing:', err);
-          });
-        }
-      };
+  const subscribeToHealthData = useCallback(() => {
+    return healthServiceInstance.subscribeToHealthData(
+      (newData: HealthEnvironmentData) => {
+        setHealthData(prevData => [newData, ...prevData]);
+      },
+      (error: any) => {
+        console.error('Health data subscription error:', error);
+        setError('Failed to subscribe to real-time health data');
+      }
+    );
+  }, []);
+
+  const syncDeviceData = useCallback(async (deviceId: string) => {
+    try {
+      await healthServiceInstance.syncDeviceData(deviceId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred while syncing device data');
     }
-  }, [dispatch, user]);
+  }, []);
 
-  return { 
-    loading, 
-    error, 
+  return {
+    healthData,
+    loading,
+    error,
     fetchHealthData,
-    healthData: healthData || [],
-    healthScores: healthScores || null,
-    regionalComparison: regionalComparison || null
+    subscribeToHealthData,
+    syncDeviceData,
   };
 };
 
 export const fetchInitialHealthData = async (token: string): Promise<HealthEnvironmentData[]> => {
   healthServiceInstance.setToken(token);
-  return await healthServiceInstance.getHealthDataForLastWeek();
+  try {
+    return await healthServiceInstance.getHealthDataForLastWeek();
+  } catch (error) {
+    console.error('Error fetching initial health data:', error);
+    return [];
+  }
 };
