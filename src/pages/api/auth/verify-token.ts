@@ -1,9 +1,9 @@
-// src/pages/api/auth/verify-token.ts
 import { verify, Secret } from 'jsonwebtoken';
 import { getCosmosClient } from '../../../config/azureConfig';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { convertToUserState } from '../../../lib/userUtils';
 import { ObjectId } from 'mongodb';
+import type { ServerUser, ServerUserSettings } from '../../../types';
 
 const verifyToken = (token: string): Promise<string | null> => {
   if (!process.env.JWT_SECRET) return Promise.resolve(null);
@@ -36,16 +36,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       throw new Error('Database is undefined');
     }
 
-    const usersCollection = db.collection('Users');
-    const settingsCollection = db.collection('UserSettings');
+    const usersCollection = db.collection<ServerUser>('Users');
+    const settingsCollection = db.collection<ServerUserSettings>('UserSettings');
     const userObjectId = new ObjectId(userId);
     
-    const serverUser = await usersCollection.findOne({ _id: userObjectId });
+    const serverUser = await usersCollection.findOne({ _id: userObjectId }) as ServerUser;
     if (!serverUser) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const serverSettings = await settingsCollection.findOne({ userId: userObjectId });
+    const serverSettings = await settingsCollection.findOne({ userId: userObjectId }) as ServerUserSettings;
     const userResponse = convertToUserState(serverUser, serverSettings, token);
     
     return res.status(200).json(userResponse);
