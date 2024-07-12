@@ -1,9 +1,12 @@
-import React, { useMemo } from 'react';
-import { AppBar, Box, Container, Toolbar, Typography, useTheme, useMediaQuery, Drawer, IconButton, List, ListItem, ListItemText } from '@mui/material';
-import { Menu as MenuIcon, Close as CloseIcon } from '@mui/icons-material';
+import React, { useMemo, useState, useEffect } from 'react';
+import { AppBar, Box, Container, Toolbar, Typography, useTheme, useMediaQuery, Drawer, IconButton, List, ListItem, ListItemText, ListItemIcon } from '@mui/material';
+import { Menu as MenuIcon, Close as CloseIcon, Dashboard, Person, Settings, Public } from '@mui/icons-material';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 import Navigation from './Navigation';
 import { useAuth } from '@/context/AuthContext';
+import { useRoutes } from '@/hooks/useRoutes';
+import type { NavItem, AppRoutes } from '@/types';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -13,8 +16,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const router = useRouter();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const { loading, user } = useAuth();
+  const { routes } = useRoutes();
 
   const isLoginPage = router.pathname === '/login' || router.pathname === '/signup';
   const isHomePage = router.pathname === '/';
@@ -23,20 +27,50 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     setMobileOpen(!mobileOpen);
   };
 
-  const drawer = useMemo(() => (
-  <Box onClick={handleDrawerToggle} sx={{ textAlign: 'center' }}>
-    <Typography variant="h6" sx={{ my: 2, fontWeight: 'bold', color: theme.palette.primary.main }}>
-      1Biome
-    </Typography>
-    <List>
-      {['Home', 'Profile', 'Settings'].map((item) => (
-        <ListItem button key={item} onClick={() => router.push(`/${item.toLowerCase()}`)}>
-          <ListItemText primary={item} />
-        </ListItem>
-      ))}
-    </List>
-  </Box>
-), [theme.palette.primary.main, handleDrawerToggle, router]);
+  const drawer = useMemo(() => {
+    const navItems: NavItem[] = [
+      { route: 'main', label: 'Main', icon: <Dashboard /> },
+      { route: 'profile', label: 'Profile', icon: <Person /> },
+      { route: 'settings', label: 'Settings', icon: <Settings /> },
+      { route: 'globescreen', label: 'Globe', icon: <Public /> },
+      { route: 'stats', label: 'Stats', icon: <Settings /> },
+    ];
+
+    if (!user) {
+      navItems.push({ route: 'login', label: 'Login', icon: <Person /> });
+    }
+
+    return (
+      <Box onClick={handleDrawerToggle} sx={{ textAlign: 'center' }}>
+        <Typography variant="h6" sx={{ my: 2, fontWeight: 'bold', color: theme.palette.primary.main }}>
+          1Biome
+        </Typography>
+        <List>
+          {navItems.map((item) => (
+            <ListItem
+              button
+              key={item.route}
+              component={Link}
+              href={routes[item.route as keyof AppRoutes]}
+              onClick={handleDrawerToggle}
+            >
+              <ListItemIcon>{item.icon}</ListItemIcon>
+              <ListItemText primary={item.label} />
+            </ListItem>
+          ))}
+        </List>
+      </Box>
+    );
+  }, [theme.palette.primary.main, handleDrawerToggle, routes, user]);
+
+  useEffect(() => {
+    // Add any side effects or subscriptions here
+    // For example, you can fetch data or subscribe to events
+    // Remember to clean up any resources in the cleanup function
+    return () => {
+      // Cleanup function
+    };
+  }, []);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
