@@ -16,13 +16,13 @@ import {
   Grid,
 } from '@mui/material';
 import dynamic from 'next/dynamic';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect } from 'react';
 import type { NextPage } from 'next';
 
 import HealthTrendChart from '@/components/HealthTrendChart';
 import { useAuth } from '@/context/AuthContext';
 import { formatDate, calculateBMI, getActivityLevel, getEnvironmentalImpact, getAirQualityDescription } from '@/lib/helpers';
-import { useHealthData} from '@/hooks/useHealthData';
+import { useHealthData } from '@/hooks/useHealthData';
 
 import type { HealthEnvironmentData } from '@/types';
 import { useRouter } from 'next/router';
@@ -34,9 +34,8 @@ interface GlobePageProps {
 }
 
 const GlobePage: NextPage<GlobePageProps> = ({ initialHealthData }: GlobePageProps) => {
-  const [healthData, setHealthData] = useState<HealthEnvironmentData[]>(initialHealthData || []);
   const { user, loading: authLoading } = useAuth();
-  const { loading: healthDataLoading, error, fetchHealthData } = useHealthData(user);
+  const { loading, error, fetchHealthData, healthData, healthScores, regionalComparison } = useHealthData(user);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const router = useRouter();
@@ -44,14 +43,14 @@ const GlobePage: NextPage<GlobePageProps> = ({ initialHealthData }: GlobePagePro
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login');
-    } else if (user && !healthData.length) {
+    } else if (user && healthData.length === 0) {
       fetchHealthData(1).catch((error) => {
         console.error('Failed to fetch health data:', error);
       });
     }
   }, [user, authLoading, fetchHealthData, healthData, router]);
 
-  if (authLoading) {
+  if (authLoading || loading) {
     return (
       <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" height="100vh" bgcolor="black">
         <CircularProgress size={60} />
@@ -95,9 +94,9 @@ const GlobePage: NextPage<GlobePageProps> = ({ initialHealthData }: GlobePagePro
 
       <Grid container spacing={3}>
         <Grid item xs={12} md={8}>
-          {healthData && healthData.length > 0 ? (
+          {healthData.length > 0 ? (
             <Box sx={{ height: '60vh', minHeight: '400px' }}>
-              <AnimatedGlobe healthData={healthData} isLoading={healthDataLoading} error={error} />
+              <AnimatedGlobe healthData={healthData} isLoading={loading} error={error} />
             </Box>
           ) : (
             <Box display="flex" justifyContent="center" alignItems="center" height="60vh" minHeight="400px">
@@ -131,7 +130,7 @@ const GlobePage: NextPage<GlobePageProps> = ({ initialHealthData }: GlobePagePro
             </TableRow>
           </TableHead>
           <TableBody>
-            {healthData && healthData.length > 0 ? (
+            {healthData.length > 0 ? (
               healthData.map((data: HealthEnvironmentData) => (
                 <TableRow key={data.timestamp.toString()}>
                   <TableCell>{formatDate(data.timestamp.toString())}</TableCell>
@@ -160,7 +159,5 @@ const GlobePage: NextPage<GlobePageProps> = ({ initialHealthData }: GlobePagePro
     </Box>
   );
 };
-
-
 
 export default GlobePage;
