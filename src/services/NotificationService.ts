@@ -8,7 +8,7 @@ export class NotificationService {
   private token: string | null = null;
   private user: UserState | null = null;
   private retryAttempts: number = 3;
-  private static BASE_URL = process.env.NODE_ENV === 'test' ? 'https://localhost:3000' : '';
+  private static BASE_URL = process.env.NODE_ENV === 'test' ? 'https://demo-1biome.vercel.app' : '';
   private setFCMToken: SetFCMTokenFunction;
   private addNotification: AddNotificationFunction;
 
