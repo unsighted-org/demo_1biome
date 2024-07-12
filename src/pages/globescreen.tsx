@@ -17,15 +17,15 @@ import {
 } from '@mui/material';
 import dynamic from 'next/dynamic';
 import React, { useEffect, useState, useCallback } from 'react';
-import type { GetServerSideProps, NextPage } from 'next';
+import type { NextPage } from 'next';
 
 import HealthTrendChart from '@/components/HealthTrendChart';
 import { useAuth } from '@/context/AuthContext';
 import { formatDate, calculateBMI, getActivityLevel, getEnvironmentalImpact, getAirQualityDescription } from '@/lib/helpers';
-import { useHealthData, fetchInitialHealthData } from '@/hooks/useHealthData';
+import { useHealthData} from '@/hooks/useHealthData';
 
 import type { HealthEnvironmentData } from '@/types';
-import { GetServerSidePropsContext } from 'next';
+import { useRouter } from 'next/router';
 
 const AnimatedGlobe = dynamic(() => import('@/components/AnimatedGlobe'), { ssr: false });
 
@@ -39,30 +39,29 @@ const GlobePage: NextPage<GlobePageProps> = ({ initialHealthData }: GlobePagePro
   const { loading: healthDataLoading, error, fetchHealthData } = useHealthData(user);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const router = useRouter();
 
   useEffect(() => {
-    if (user && !healthData.length) {
+    if (!authLoading && !user) {
+      router.push('/login');
+    } else if (user && !healthData.length) {
       fetchHealthData(1).catch((error) => {
         console.error('Failed to fetch health data:', error);
       });
     }
-  }, [user, fetchHealthData, healthData]);
+  }, [user, authLoading, fetchHealthData, healthData, router]);
 
-  if (authLoading || healthDataLoading) {
+  if (authLoading) {
     return (
       <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" height="100vh" bgcolor="black">
         <CircularProgress size={60} />
-        <Typography variant="h6" sx={{ marginTop: '20px', color: 'white' }}>Loading your health data...</Typography>
+        <Typography variant="h6" sx={{ marginTop: '20px', color: 'white' }}>Loading...</Typography>
       </Box>
     );
   }
 
   if (!user) {
-    return (
-      <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" height="100vh" bgcolor="black">
-        <Typography variant="h6" sx={{ marginTop: '20px', color: 'white' }}>Please login to view your health data.</Typography>
-      </Box>
-    );
+    return null; // This will prevent any flash of content before redirecting
   }
 
   if (error) {
@@ -162,27 +161,6 @@ const GlobePage: NextPage<GlobePageProps> = ({ initialHealthData }: GlobePagePro
   );
 };
 
-export const getServerSideProps: GetServerSideProps<GlobePageProps> = async (
-  context: GetServerSidePropsContext
-) => {
-  const token = context.req.cookies['auth_token'];
 
-  if (!token) {
-    return {
-      redirect: {
-        destination: '/login',
-        permanent: false,
-      },
-    };
-  }
-
-  try {
-    const initialHealthData = await fetchInitialHealthData(token);
-    return { props: { initialHealthData } };
-  } catch (error) {
-    console.error('Error fetching initial health data:', error);
-    return { props: { initialHealthData: [] } };
-  }
-};
 
 export default GlobePage;
