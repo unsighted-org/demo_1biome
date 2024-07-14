@@ -5,7 +5,7 @@ import useApi from '@/lib/api';
 import type { UserState, UserSettings, UserSignupData } from '@/types';
 import { useDispatch, useSelector } from 'react-redux';
 import Cookies from 'js-cookie';
-
+// Remove the import statement
 
 interface AuthContextData {
   user: UserState | null;
@@ -63,8 +63,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [dispatch, verifyToken]);
 
-  const handleSignIn = useCallback(async (email: string, password: string): Promise<void> => {
-    try {
+  const redirectToAppropriateRoute = useCallback(() => {
+    if (router.pathname === '/login' || router.pathname === '/signup') {
+      router.push('/globescreen');
+    }
+  }, [router]);
+  
+  const user = useSelector((state: RootState) => state.user); // Declare the 'user' variable
+  
+  useEffect(() => {
+    if (user && !loading) {
+      redirectToAppropriateRoute();
+    } else if (!user && !loading) {
+      if (router.pathname !== '/login' && router.pathname !== '/signup') {
+        router.push('/login');
+      }
+    }
+  }, [user, loading, redirectToAppropriateRoute, router]);
+      
+    const handleSignIn = useCallback(async (email: string, password: string): Promise<void> => {
+      setLoading(true);
+      try {
       console.log('Signing in...');
       const userState = await signIn(email, password);
       console.log('Sign in successful, user state:', userState);
@@ -78,12 +97,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Notification service initialized');
       console.log('Redirecting to /globescreen');
       router.push('/globescreen');
-    } catch (error) {
-      console.error('Sign in error:', error);
-      throw error;
+    setLoading(false);
+    redirectToAppropriateRoute();
+  } catch (error) {
+    setLoading(false);
+    console.error('Sign in error:', error);
+    // Handle specific error types if needed
+    if ((error as any).response?.status === 401) {
+      // Handle unauthorized error
+    } else {
+      // Handle other types of errors
     }
-  }, [signIn, router, dispatch]);
-
+  }
+    }, [signIn, dispatch, redirectToAppropriateRoute]);
+  
   const handleSignup = useCallback(async (signupData: UserSignupData): Promise<void> => {
     try {
       console.log('Signing up...');
