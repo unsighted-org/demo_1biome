@@ -254,7 +254,6 @@
 
 // export default LoginPage;
 
-
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { Canvas, useFrame, useThree, extend } from '@react-three/fiber';
 import { Preload, shaderMaterial } from '@react-three/drei';
@@ -267,8 +266,30 @@ import Link from 'next/link';
 
 import { useAuth } from '@/context/AuthContext';
 import type { UserLoginData } from '@/types';
+import { Object3DNode } from '@react-three/fiber'
 
-// Custom star shader
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      starMaterial: Object3DNode<THREE.ShaderMaterial, typeof shaderMaterial>
+    }
+  }
+}
+
+interface ShootingStarProps {
+    position: THREE.Vector3;
+    speed: number;
+    size: number;
+}
+
+const ShootingStar: React.FC<ShootingStarProps> = React.memo(({ position, speed, size }) => {
+    const mesh = useRef<THREE.Mesh>(null);
+    const trail = useRef<THREE.Mesh>(null);
+    const materialRef = useRef<THREE.ShaderMaterial & { time: { value: number } }>(null);
+  const { viewport } = useThree();
+  
+
+    // Custom star shader
 const StarMaterial = shaderMaterial(
     { time: 0, color: new THREE.Color(0.2, 0.8, 1) },
     // vertex shader
@@ -295,18 +316,6 @@ const StarMaterial = shaderMaterial(
 
 extend({ StarMaterial });
 
-interface ShootingStarProps {
-    position: THREE.Vector3;
-    speed: number;
-    size: number;
-}
-
-const ShootingStar: React.FC<ShootingStarProps> = React.memo(({ position, speed, size }) => {
-    const mesh = useRef<THREE.Mesh>(null);
-    const trail = useRef<THREE.Mesh>(null);
-    const materialRef = useRef<THREE.ShaderMaterial>(null);
-    const { viewport } = useThree();
-
     useFrame((state, delta) => {
         if (mesh.current && trail.current) {
             mesh.current.position.x += speed * delta;
@@ -320,7 +329,7 @@ const ShootingStar: React.FC<ShootingStarProps> = React.memo(({ position, speed,
             }
         }
         if (materialRef.current) {
-            materialRef.current.uniforms.time.value = state.clock.elapsedTime;
+            materialRef.current.uniforms.time.value = state.clock.getElapsedTime();
         }
     });
 
