@@ -2,77 +2,29 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/context/AuthContext';
 import { useHealth } from '@/services/HealthContext';
-import { MAX_PAGES } from '@/constants';
+import { useAppSelector } from '@/store';
 import {
   Box, Typography, CircularProgress, Paper, Grid, Divider, Tabs, Tab, 
   List, ListItem, ListItemIcon, ListItemText, Avatar
 } from '@mui/material';
-import { TrendingUp, FavoriteOutlined, DirectionsRunOutlined, Co2Outlined } from '@mui/icons-material';
-import type { HealthEnvironmentData, HealthScores, RegionalComparison, UserState } from '@/types';
-import HealthTrendChart from '@/components/HealthTrendChart';
+import { TrendingUp, FavoriteOutlined, DirectionsRunOutlined, Co2Outlined, AccessTime } from '@mui/icons-material';
+import type { HealthEnvironmentData, UserState } from '@/types';
 import CustomButton from '@/components/CustomButton';
-import { getDetailedLocation } from '@/lib/helpers';
 
 const ProfilePage: React.FC = () => {
   const router = useRouter();
   const { user, loading: authLoading, signOut } = useAuth();
-  const [pageNumber, setPageNumber] = useState(1);
-  const { 
-    fetchHealthData, 
-    loading: healthLoading, 
-    error,
-    getHealthScores,
-    getRegionalComparison,
-    healthData
-  } = useHealth();
+  const { loading: healthLoading, error } = useHealth();
   const [tabValue, setTabValue] = useState(0);
-  const [healthScores, setHealthScores] = useState<HealthScores | null>(null);
-  const [regionalComparison, setRegionalComparison] = useState<RegionalComparison | null>(null);
+  
+  const healthData = useAppSelector(state => state.health.data);
+  const healthScores = useAppSelector(state => state.health.scores);
 
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login');
     }
   }, [user, authLoading, router]);
-
-  useEffect(() => {
-    if (user && healthData.length === 0) {
-      const fetchData = async () => {
-        try {
-          await fetchHealthData(pageNumber);
-          
-          if (healthData.length > 0) {
-            const latestData = healthData[healthData.length - 1];
-            
-            const locationInfo = await getDetailedLocation(latestData.latitude, latestData.longitude);
-            
-            if (user.id) {
-              const scores = await getHealthScores(user.id);
-              if (scores) {
-                setHealthScores(scores);
-              }
-            }
-
-            if (locationInfo.country) {
-              const comparison = await getRegionalComparison(locationInfo.country);
-              if (comparison) {
-                setRegionalComparison(comparison);
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Error fetching health data:', error);
-        }
-      };
-      fetchData();
-    }
-  }, [user, pageNumber, fetchHealthData, getHealthScores, getRegionalComparison, healthData]);
-
-  const handlePageChange = (newPage: number) => {
-    if (newPage >= 1 && newPage <= MAX_PAGES) {
-      setPageNumber(newPage);
-    }
-  };
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -126,33 +78,42 @@ const ProfilePage: React.FC = () => {
     </List>
   );
 
-  const HealthStatsSection: React.FC = () => {
+  const HealthSummarySection: React.FC = () => {
     const latestHealthData = healthData[healthData.length - 1] || {} as HealthEnvironmentData;
     return (
-      <>
-        <List>
-          <ListItem>
-            <ListItemIcon><DirectionsRunOutlined /></ListItemIcon>
-            <ListItemText primary="Steps" secondary={latestHealthData.steps} />
-          </ListItem>
-          <ListItem>
-            <ListItemIcon><FavoriteOutlined /></ListItemIcon>
-            <ListItemText primary="Heart Rate" secondary={`${latestHealthData.heartRate} bpm`} />
-          </ListItem>
-          <ListItem>
-            <ListItemIcon><Co2Outlined /></ListItemIcon>
-            <ListItemText primary="Environmental Impact Score" secondary={latestHealthData.environmentalImpactScore} />
-          </ListItem>
-        </List>
-        <Box sx={{ mt: 4 }}>
-          <Typography variant="h6" gutterBottom>Health Trends</Typography>
-          <HealthTrendChart onDataUpdate={function (data: HealthEnvironmentData[]): void {
-            throw new Error('Function not implemented.');
-          } } />
-        </Box>
-      </>
+      <List>
+        <ListItem>
+          <ListItemIcon><AccessTime /></ListItemIcon>
+          <ListItemText primary="Last Sync" secondary={new Date(latestHealthData.timestamp).toLocaleString()} />
+        </ListItem>
+        <ListItem>
+          <ListItemIcon><FavoriteOutlined /></ListItemIcon>
+          <ListItemText primary="Average Heart Rate" secondary={`${healthScores?.cardioHealthScore.toFixed(2) || 'N/A'} bpm`} />
+        </ListItem>
+        <ListItem>
+          <ListItemIcon><DirectionsRunOutlined /></ListItemIcon>
+          <ListItemText primary="Average Daily Steps" secondary={healthScores?.physicalActivityScore.toFixed(0) || 'N/A'} />
+        </ListItem>
+        <ListItem>
+          <ListItemIcon><Co2Outlined /></ListItemIcon>
+          <ListItemText primary="Environmental Impact Score" secondary={healthScores?.environmentalImpactScore.toFixed(2) || 'N/A'} />
+        </ListItem>
+      </List>
     );
   };
+
+  const ActivityLogSection: React.FC = () => (
+    <List>
+      {healthData.slice(-5).reverse().map((data, index) => (
+        <ListItem key={index}>
+          <ListItemText 
+            primary={new Date(data.timestamp).toLocaleDateString()} 
+            secondary={`Steps: ${data.steps}, Heart Rate: ${data.heartRate} bpm`} 
+          />
+        </ListItem>
+      ))}
+    </List>
+  );
 
   return (
     <Box sx={{ maxWidth: 1200, mx: 'auto', p: 2 }}>
@@ -167,13 +128,11 @@ const ProfilePage: React.FC = () => {
         <Grid item xs={12} md={8}>
           <Paper elevation={3} sx={{ p: 3 }}>
             <Tabs value={tabValue} onChange={handleTabChange} centered sx={{ mb: 2 }}>
-              <Tab label="Health Stats" />
-              <Tab label="Activity Log" />
+              <Tab label="Health Summary" />
+              <Tab label="Recent Activity" />
             </Tabs>
-            {tabValue === 0 && <HealthStatsSection />}
-            {tabValue === 1 && (
-              <Typography variant="body1">Activity log coming soon...</Typography>
-            )}
+            {tabValue === 0 && <HealthSummarySection />}
+            {tabValue === 1 && <ActivityLogSection />}
           </Paper>
         </Grid>
       </Grid>
