@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { Refresh, Error } from '@mui/icons-material';
 import {
   Box,
@@ -39,6 +39,7 @@ const GlobePage: NextPage = () => {
   const [showSnackbar, setShowSnackbar] = useState(false);
   const [filteredHealthData, setFilteredHealthData] = useState<HealthEnvironmentData[]>([]);
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>([]);
+  const chartRef = useRef<any>(null);
 
   const handleHealthTrendDataUpdate = useCallback((data: HealthEnvironmentData[], metrics: string[]) => {
     setFilteredHealthData(data);
@@ -54,10 +55,11 @@ const GlobePage: NextPage = () => {
   }, [user, fetchHealthData, globeData.length]);
 
   const handleRefresh = async () => {
-    fetchHealthData(1).catch((error) => {
-      console.error('Failed to fetch health data:', error);
-    });
-  };
+  await fetchHealthData(1);
+  if (chartRef.current) {
+    chartRef.current.refreshData();
+  }
+};
 
   if (healthDataLoading) {
     return (
@@ -124,7 +126,10 @@ const GlobePage: NextPage = () => {
         </Grid>
         <Grid item xs={12} md={4}>
           <Paper sx={{ p: 2, borderRadius: 2, height: '100%' }}>
-            <HealthTrendChart onDataUpdate={handleHealthTrendDataUpdate} />
+            <HealthTrendChart 
+              ref={chartRef}
+              onDataUpdate={handleHealthTrendDataUpdate} 
+            />
           </Paper>
         </Grid>
       </Grid>
