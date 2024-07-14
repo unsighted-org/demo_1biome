@@ -31,16 +31,16 @@ const signinHandler = async (req: NextApiRequest, res: NextApiResponse): Promise
       return res.status(401).json({ error: 'Invalid password' });
     }
 
-    const token = sign({ userId: user._id.toString() }, process.env.JWT_SECRET!, { expiresIn: '7d' });
+    const token = sign({ userId: user._id as string }, process.env.JWT_SECRET!, { expiresIn: '7d' });
 
     // Fetch user settings
     const userSettings = db.collection<UserSettings>('userSettings');
-    const settings = await userSettings.findOne({ userId: user._id.toString() }) as UserSettings | null;
+    const settings = await userSettings.findOne({ userId: user._id as string }) as UserSettings | null;
 
     // Convert to UserState format
     const userState: UserState = {
-      id: user._id.toString(),
-      _id: user._id.toString(),
+      id: user._id as string,
+      _id: (user._id as string).toString(),
       email: user.email,
       name: user.name,
       createdAt: user.createdAt.toISOString(),

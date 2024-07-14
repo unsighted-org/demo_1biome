@@ -11,6 +11,7 @@ interface AnimatedGlobeProps {
   healthData: HealthEnvironmentData[];
   isLoading: boolean;
   error: string | null;
+  selectedMetrics: string[];
 }
 
 const EnhancedGlobeVisualization = dynamic(() => import('./EnhancedGlobeVisualization'), {
@@ -18,7 +19,7 @@ const EnhancedGlobeVisualization = dynamic(() => import('./EnhancedGlobeVisualiz
   loading: () => <div>Loading Globe...</div>
 });
 
-const AnimatedGlobe: React.FC<AnimatedGlobeProps> = ({ healthData, isLoading, error }) => {
+const AnimatedGlobe: React.FC<AnimatedGlobeProps> = ({ healthData, isLoading, error, selectedMetrics }) => {
   const [displayMetric, setDisplayMetric] = useState<keyof HealthEnvironmentData>('environmentalImpactScore');
 
   if (isLoading) {
@@ -56,10 +57,11 @@ const AnimatedGlobe: React.FC<AnimatedGlobeProps> = ({ healthData, isLoading, er
               onChange={(e) => setDisplayMetric(e.target.value as keyof HealthEnvironmentData)}
               label="Select Metric"
             >
-              <MenuItem value="environmentalImpactScore">Environmental Impact</MenuItem>
-              <MenuItem value="cardioHealthScore">Cardiovascular Health</MenuItem>
-              <MenuItem value="respiratoryHealthScore">Respiratory Health</MenuItem>
-              <MenuItem value="physicalActivityScore">Physical Activity</MenuItem>
+              {selectedMetrics.map((metric) => (
+                <MenuItem key={metric} value={metric}>
+                  {metric.charAt(0).toUpperCase() + metric.slice(1).replace(/([A-Z])/g, ' $1').trim()}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
           <Box sx={{ height: '60vh', width: '100%', position: 'relative' }}>

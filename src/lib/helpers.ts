@@ -1,3 +1,13 @@
+
+// need to use the Dijkstra Algorithm on Maps
+// need to use the A* Algorithm on Maps
+// need to use the Breadth First Search Algorithm on Maps
+// need to use the Depth First Search Algorithm on Maps
+// need to use the Greedy Best First Search Algorithm on Maps
+// need to use the Hill Climbing Algorithm on Maps
+// need to use the Simulated Annealing Algorithm on Maps
+// need to use the Genetic Algorithm on Maps
+
 import { geoContains, geoDistance } from 'd3-geo';
 import RBush from 'rbush';
 import type { IncomingMessage } from 'http';
@@ -35,10 +45,10 @@ function isIncomingMessage(req: any): req is IncomingMessage {
 
 function getBaseUrl(req?: IncomingMessage): string {
   if (isIncomingMessage(req)) {
-    const host = req.headers.host || 'demo-1biome.vercel.app';
+    const host = req.headers.host || 'localhost:3000';
     return `https://${host}`;
   }
-  return process.env.NEXT_PUBLIC_BASE_URL || 'https://demo-1biome.vercel.app';
+  return process.env.NEXT_PUBLIC_BASE_URL || 'https://localhost:3000';
 }
 
 export async function loadGeoData(req?: IncomingMessage): Promise<void> {
@@ -52,9 +62,22 @@ export async function loadGeoData(req?: IncomingMessage): Promise<void> {
     const baseUrl = getBaseUrl(req);
     console.log('Fetching geo data from:', baseUrl);
 
+    const fetchWithTimeout = async (url: string, timeout = 10000) => {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeout);
+      try {
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(id);
+        return response;
+      } catch (error) {
+        clearTimeout(id);
+        throw error;
+      }
+    };
+
     const [countriesResponse, citiesResponse] = await Promise.all([
-      (globalThis.fetch as typeof fetch)(`${baseUrl}/api/geo/countries`),
-      (globalThis.fetch as typeof fetch)(`${baseUrl}/api/geo/cities`)
+      fetchWithTimeout(`${baseUrl}/api/geo/countries`),
+      fetchWithTimeout(`${baseUrl}/api/geo/cities`)
     ]);
 
     if (!countriesResponse.ok || !citiesResponse.ok) {

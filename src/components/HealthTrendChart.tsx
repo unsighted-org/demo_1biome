@@ -1,15 +1,18 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react';
 import {
   Button, FormControl, InputLabel, Select, MenuItem, Card, CardContent,
   CardHeader, Typography, useMediaQuery, useTheme, Popover, TextField
 } from '@mui/material';
+import { useHealth } from '@/services/HealthContext';
 import { format } from 'date-fns';
 import { FaHeart, FaLungs, FaWind, FaRunning, FaCalendarAlt } from 'react-icons/fa';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceArea } from 'recharts';
 
 import { formatDate, getHealthScoreDescription } from '@/lib/helpers';
 import { getColorForMetric, getMetricColor } from '@/lib/colorUtils';
-
+import { useDispatch } from 'react-redux';
+import { updateHealthData } from '@/store';
+import debounce from 'lodash/debounce';
 import type { HealthEnvironmentData } from '@/types';
 
 type HealthMetric = 'cardioHealthScore' | 'respiratoryHealthScore' | 'physicalActivityScore' | 'environmentalImpactScore';
@@ -19,10 +22,12 @@ const isHealthMetric = (key: string): key is HealthMetric => {
 };
 
 interface HealthTrendChartProps {
-  healthData: HealthEnvironmentData[];
+  onDataUpdate: (data: HealthEnvironmentData[], selectedMetrics: string[]) => void;
 }
 
-const HealthTrendChart: React.FC<HealthTrendChartProps> = ({ healthData }) => {
+const HealthTrendChart = forwardRef(({ onDataUpdate }: HealthTrendChartProps, ref) => {
+  const { healthData, fetchHealthData } = useHealth();
+  const dispatch = useDispatch();
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>(['cardioHealthScore', 'respiratoryHealthScore']);
   const [chartType, setChartType] = useState<'line' | 'area'>('line');
   const [startDate, setStartDate] = useState<Date | null>(
@@ -59,6 +64,27 @@ const HealthTrendChart: React.FC<HealthTrendChartProps> = ({ healthData }) => {
       return (!startDate || dataDate >= startDate) && (!endDate || dataDate <= endDate);
     });
   }, [healthData, startDate, endDate]);
+
+  // Debounced dispatch function to prevent frequent updates
+  const debouncedDispatch = useCallback(
+    debounce((data) => {
+      dispatch(updateHealthData(data));
+      onDataUpdate(data, selectedMetrics);
+    }, 300), // Adjust the delay as needed
+    [dispatch, onDataUpdate, selectedMetrics]
+  );
+
+  useEffect(() => {
+    if (filteredData.length > 0) {
+      debouncedDispatch(filteredData);
+    }
+  }, [filteredData, selectedMetrics, debouncedDispatch]);
+
+  useImperativeHandle(ref, () => ({
+    refreshData: async () => {
+      await fetchHealthData(1);
+    }
+  }));
 
   const handleDateRangeClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
     setAnchorEl(event.currentTarget);
@@ -116,7 +142,6 @@ const HealthTrendChart: React.FC<HealthTrendChartProps> = ({ healthData }) => {
     return getMetricColor(metric);
   }, [filteredData]);
 
-
   if (!healthData || healthData.length === 0) {
     return <Typography>No health data available</Typography>;
   }
@@ -148,7 +173,7 @@ const HealthTrendChart: React.FC<HealthTrendChartProps> = ({ healthData }) => {
             Date Range
           </Button>
         </div>
-        <div className="flex flex-wrap justify-start items-center mb-4">
+        <div className="flex flex-wrap justify-start items-center mb=4">
           {metricOptions.map(({ value, label, icon }) => (
             <Button
               key={value}
@@ -206,7 +231,6 @@ const HealthTrendChart: React.FC<HealthTrendChartProps> = ({ healthData }) => {
           </ResponsiveContainer>
         </div>
         <Button onClick={zoomOut} sx={{ mt: 2 }}>Zoom Out</Button>
-      </CardContent>
       <Popover
         id="date-range-popover"
         open={Boolean(anchorEl)}
@@ -245,8 +269,9 @@ const HealthTrendChart: React.FC<HealthTrendChartProps> = ({ healthData }) => {
           <Button onClick={handleDateRangeSubmit}>Apply</Button>
         </div>
       </Popover>
+      </CardContent>
     </Card>
   );
-};
+});
 
 export default HealthTrendChart;

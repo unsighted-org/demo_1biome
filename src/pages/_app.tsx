@@ -6,6 +6,7 @@ import { Provider as ReduxProvider } from 'react-redux';
 import ErrorBoundary from '../components/ErrorBoundary';
 import Layout from '../components/Layout';
 import { AuthProvider, useAuth } from '../context/AuthContext';
+import { HealthProvider } from '@/services/HealthContext';
 import { store, notificationService } from '../store';
 import theme from '../styles/theme';
 import type { AppProps } from 'next/app';
@@ -40,7 +41,7 @@ function NotificationInitializer(): JSX.Element {
         .then(() => {
           console.log('Notification service initialized successfully');
         })
-        .catch(error => {
+        .catch((error: any) => {
           console.error('Failed to initialize notification service:', error);
         });
     }
@@ -55,13 +56,15 @@ function MyApp({ Component, pageProps: { session, ...pageProps } }: AppProps): J
         <ThemeProvider theme={theme}>
           <CssBaseline />
           <AuthProvider>
+            <HealthProvider>
             <ServiceWorkerRegistration />
             <NotificationInitializer />
             <Layout>
               <ErrorBoundary>
                 <Component {...pageProps} />
               </ErrorBoundary>
-            </Layout>
+              </Layout>
+            </HealthProvider>
           </AuthProvider>
         </ThemeProvider>
       </ReduxProvider>

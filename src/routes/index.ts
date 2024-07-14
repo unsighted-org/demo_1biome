@@ -8,6 +8,7 @@ export const routes: AppRoutes = {
   settings: '/settings',
   login: '/login',
   signup: '/signup',
+  splashPage: '/splashPage',
   changePassword: '/change-password',
   deleteAccount: '/delete-account',
   globescreen: '/globescreen',

@@ -3,25 +3,23 @@ import { Box, Typography, CircularProgress, Alert } from '@mui/material';
 import { useRouter } from 'next/router';
 import HealthTrendChart from '@/components/HealthTrendChart';
 import { useAuth } from '@/context/AuthContext';
-import { useHealthData } from '@/hooks/useHealthData';
-import { useAppSelector } from '@/store';
+import { useHealth } from '@/services/HealthContext';
 
 const StatsPage: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const { loading, error, fetchHealthData } = useHealthData(user);
-  const healthData = useAppSelector((state) => state.health.data);
+  const { fetchHealthData, loading: healthLoading, error, healthData } = useHealth();
 
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login');
-    } else if (user) {
-      fetchHealthData(1); // Fetch first page of health data
+    } else if (user && healthData.length === 0) {
+      fetchHealthData(1); // Fetch first page of health data if not already loaded
     }
-  }, [user, authLoading, router, fetchHealthData]);
+  }, [user, authLoading, router, fetchHealthData, healthData.length]);
 
   const content = useMemo(() => {
-    if (loading) {
+    if (healthLoading) {
       return (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
           <CircularProgress />
@@ -36,10 +34,10 @@ const StatsPage: React.FC = () => {
     }
     return (
       <Box sx={{ height: 'calc(100vh - 200px)', mb: 4 }}>
-        <HealthTrendChart healthData={healthData} />
+        <HealthTrendChart/>
       </Box>
     );
-  }, [loading, error, healthData]);
+  }, [healthLoading, error, healthData]);
 
   if (authLoading) {
     return (

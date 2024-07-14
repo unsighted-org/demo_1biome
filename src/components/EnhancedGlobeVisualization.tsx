@@ -6,6 +6,16 @@ import React, { useEffect, useState } from 'react';
 
 import type { HealthEnvironmentData } from '@/types';
 
+interface GlobeProps {
+  healthData: HealthEnvironmentData[];
+  displayMetric: keyof HealthEnvironmentData;
+}
+
+interface EnhancedGlobeVisualizationProps {
+  healthData: HealthEnvironmentData[];
+  displayMetric: keyof HealthEnvironmentData;
+}
+
 const Globe = dynamic(() => import('./Globe'), { ssr: false });
 
 interface EnhancedGlobeVisualizationProps {
@@ -13,7 +23,7 @@ interface EnhancedGlobeVisualizationProps {
   displayMetric: keyof HealthEnvironmentData;
 }
 
-const EnhancedGlobeVisualization: React.FC<EnhancedGlobeVisualizationProps> = ({ healthData, displayMetric }) => {
+const EnhancedGlobeVisualization: React.FC<EnhancedGlobeVisualizationProps & GlobeProps> = ({ healthData, displayMetric }) => {
   const [error, setError] = useState<string | null>(null);
   const [isGeoDataLoading, setIsGeoDataLoading] = useState(true);
 
@@ -46,7 +56,7 @@ const EnhancedGlobeVisualization: React.FC<EnhancedGlobeVisualizationProps> = ({
       <Stars />
       <ambientLight intensity={0.2} />
       <pointLight position={[10, 10, 10]} intensity={0.7} />
-      <Globe healthData={healthData} displayMetric={displayMetric} />
+      <Globe displayMetric={displayMetric} healthData={[]} />
     </Canvas>
   );
 };

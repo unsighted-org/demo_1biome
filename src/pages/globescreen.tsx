@@ -1,3 +1,4 @@
+import React, { useState, useCallback } from 'react';
 import { Refresh, Error } from '@mui/icons-material';
 import {
   Box,
@@ -14,53 +15,65 @@ import {
   useTheme,
   useMediaQuery,
   Grid,
+  Snackbar,
 } from '@mui/material';
 import dynamic from 'next/dynamic';
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import type { NextPage } from 'next';
 
 import HealthTrendChart from '@/components/HealthTrendChart';
 import { useAuth } from '@/context/AuthContext';
+import { useHealth } from '@/services/HealthContext';
 import { formatDate, calculateBMI, getActivityLevel, getEnvironmentalImpact, getAirQualityDescription } from '@/lib/helpers';
-import { useHealthData } from '@/hooks/useHealthData';
-
 import type { HealthEnvironmentData } from '@/types';
-import { useRouter } from 'next/router';
+import { GetServerSideProps, GetServerSidePropsContext } from 'next';
 
 const AnimatedGlobe = dynamic(() => import('@/components/AnimatedGlobe'), { ssr: false });
 
-interface GlobePageProps {
-  initialHealthData: HealthEnvironmentData[];
-}
-
-const GlobePage: NextPage<GlobePageProps> = ({ initialHealthData }: GlobePageProps) => {
-  const { user, loading: authLoading } = useAuth();
-  const { loading, error, fetchHealthData, healthData, healthScores, regionalComparison } = useHealthData(user);
+const GlobePage: NextPage = () => {
+  const { user } = useAuth();
+  const { fetchHealthData, loading: healthDataLoading, error, healthData } = useHealth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const router = useRouter();
+  const [globeData, setGlobeData] = useState<HealthEnvironmentData[]>([]);
+  const [showSnackbar, setShowSnackbar] = useState(false);
+  const [filteredHealthData, setFilteredHealthData] = useState<HealthEnvironmentData[]>([]);
+  const [selectedMetrics, setSelectedMetrics] = useState<string[]>([]);
+
+  const handleHealthTrendDataUpdate = useCallback((data: HealthEnvironmentData[], metrics: string[]) => {
+    setFilteredHealthData(data);
+    setSelectedMetrics(metrics);
+  }, []);
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/login');
-    } else if (user && healthData.length === 0) {
+    if (user && globeData.length === 0) {
       fetchHealthData(1).catch((error) => {
         console.error('Failed to fetch health data:', error);
       });
     }
-  }, [user, authLoading, fetchHealthData, healthData, router]);
+  }, [user, fetchHealthData, globeData.length]);
 
-  if (authLoading || loading) {
+  const handleRefresh = async () => {
+    fetchHealthData(1).catch((error) => {
+      console.error('Failed to fetch health data:', error);
+    });
+  };
+
+  if (healthDataLoading) {
     return (
       <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" height="100vh" bgcolor="black">
         <CircularProgress size={60} />
-        <Typography variant="h6" sx={{ marginTop: '20px', color: 'white' }}>Loading...</Typography>
+        <Typography variant="h6" sx={{ marginTop: '20px', color: 'white' }}>Loading your health data...</Typography>
       </Box>
     );
   }
 
   if (!user) {
-    return null; // This will prevent any flash of content before redirecting
+    return (
+      <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" height="100vh" bgcolor="black">
+        <Typography variant="h6" sx={{ marginTop: '20px', color: 'white' }}>Please login to view your health data.</Typography>
+      </Box>
+    );
   }
 
   if (error) {
@@ -69,7 +82,7 @@ const GlobePage: NextPage<GlobePageProps> = ({ initialHealthData }: GlobePagePro
         <Error color="error" sx={{ fontSize: 60, marginBottom: '20px' }} />
         <Typography variant="h5" color="error" gutterBottom>Oops! Something went wrong.</Typography>
         <Typography variant="body1" gutterBottom color="white">{error}</Typography>
-        <Button variant="contained" onClick={() => fetchHealthData(1)} startIcon={<Refresh />} sx={{ marginTop: '20px' }}>Retry</Button>
+        <Button variant="contained" onClick={handleRefresh} startIcon={<Refresh />} sx={{ marginTop: '20px' }}>Retry</Button>
       </Box>
     );
   }
@@ -89,14 +102,19 @@ const GlobePage: NextPage<GlobePageProps> = ({ initialHealthData }: GlobePagePro
     }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4">Your Health Globe</Typography>
-        <Button variant="contained" onClick={() => fetchHealthData(1)} startIcon={<Refresh />}>Refresh Data</Button>
+        <Button variant="contained" onClick={handleRefresh} startIcon={<Refresh />}>Refresh Data</Button>
       </Box>
 
       <Grid container spacing={3}>
         <Grid item xs={12} md={8}>
-          {healthData.length > 0 ? (
+          {filteredHealthData.length > 0 ? (
             <Box sx={{ height: '60vh', minHeight: '400px' }}>
-              <AnimatedGlobe healthData={healthData} isLoading={loading} error={error} />
+              <AnimatedGlobe 
+                healthData={filteredHealthData} 
+                isLoading={healthDataLoading} 
+                error={error} 
+                selectedMetrics={selectedMetrics}
+              />
             </Box>
           ) : (
             <Box display="flex" justifyContent="center" alignItems="center" height="60vh" minHeight="400px">
@@ -106,7 +124,7 @@ const GlobePage: NextPage<GlobePageProps> = ({ initialHealthData }: GlobePagePro
         </Grid>
         <Grid item xs={12} md={4}>
           <Paper sx={{ p: 2, borderRadius: 2, height: '100%' }}>
-            <HealthTrendChart healthData={healthData} />
+            <HealthTrendChart onDataUpdate={handleHealthTrendDataUpdate} />
           </Paper>
         </Grid>
       </Grid>
@@ -130,8 +148,8 @@ const GlobePage: NextPage<GlobePageProps> = ({ initialHealthData }: GlobePagePro
             </TableRow>
           </TableHead>
           <TableBody>
-            {healthData.length > 0 ? (
-              healthData.map((data: HealthEnvironmentData) => (
+            {filteredHealthData.length > 0 ? (
+              filteredHealthData.map((data: HealthEnvironmentData) => (
                 <TableRow key={data.timestamp.toString()}>
                   <TableCell>{formatDate(data.timestamp.toString())}</TableCell>
                   <TableCell>{data.steps}</TableCell>
@@ -156,8 +174,33 @@ const GlobePage: NextPage<GlobePageProps> = ({ initialHealthData }: GlobePagePro
           </TableBody>
         </Table>
       </Paper>
+
+      <Snackbar
+        open={showSnackbar}
+        autoHideDuration={6000}
+        onClose={() => setShowSnackbar(false)}
+        message="No health data available. Start tracking to see your globe!"
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
     </Box>
   );
+};
+
+export const getServerSideProps: GetServerSideProps = async (
+  context: GetServerSidePropsContext
+) => {
+  const token = context.req.cookies['auth_token'];
+
+  if (!token) {
+    return {
+      redirect: {
+        destination: '/login',
+        permanent: false,
+      },
+    };
+  }
+
+  return { props: {} };
 };
 
 export default GlobePage;
