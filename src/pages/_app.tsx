@@ -11,6 +11,7 @@ import { store, notificationService } from '../store';
 import theme from '../styles/theme';
 import type { AppProps } from 'next/app';
 import '../styles/globals.css';
+import FallbackComponent from '../components/FallbackComponent';
 
 function ServiceWorkerRegistration(): JSX.Element {
   useEffect(() => {
@@ -60,7 +61,7 @@ function MyApp({ Component, pageProps: { session, ...pageProps } }: AppProps): J
             <ServiceWorkerRegistration />
             <NotificationInitializer />
             <Layout>
-              <ErrorBoundary>
+              <ErrorBoundary FallbackComponent={FallbackComponent}>
                 <Component {...pageProps} />
               </ErrorBoundary>
               </Layout>
