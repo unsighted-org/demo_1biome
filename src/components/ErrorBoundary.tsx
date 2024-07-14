@@ -1,9 +1,9 @@
 import React, { ErrorInfo, ReactNode } from 'react';
-import { Box, Typography, Button } from '@mui/material';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
-  errorMessage?: string;
+  FallbackComponent: React.ComponentType<{ error: Error; resetErrorBoundary: () => void }>;
+  onReset?: () => void;
 }
 
 interface ErrorBoundaryState {
@@ -23,34 +23,21 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
-    // You can log the error to an error reporting service here
+  }
+
+  resetErrorBoundary = () => {
+    this.setState({ hasError: false, error: null });
+    if (this.props.onReset) {
+      this.props.onReset();
+    }
   }
 
   render(): React.ReactNode {
     if (this.state.hasError) {
-      return (
-        <Box sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100vh',
-        }}>
-          <Typography variant="h5" color="error" gutterBottom>
-            {this.props.errorMessage || 'Something went wrong.'}
-          </Typography>
-          <Typography variant="body1" color="textSecondary" gutterBottom>
-            Error details: {this.state.error?.toString()}
-          </Typography>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={() => this.setState({ hasError: false, error: null })}
-          >
-            Try again
-          </Button>
-        </Box>
-      );
+      return <this.props.FallbackComponent 
+        error={this.state.error!} 
+        resetErrorBoundary={this.resetErrorBoundary} 
+      />;
     }
 
     return this.props.children;
