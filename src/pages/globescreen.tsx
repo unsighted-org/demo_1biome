@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Refresh, Error } from '@mui/icons-material';
 import {
   Box,
@@ -18,7 +18,6 @@ import {
   Snackbar,
 } from '@mui/material';
 import dynamic from 'next/dynamic';
-import { useEffect } from 'react';
 import type { NextPage } from 'next';
 
 import HealthTrendChart from '@/components/HealthTrendChart';
@@ -55,25 +54,17 @@ const GlobePage: NextPage = () => {
   }, [user, fetchHealthData, globeData.length]);
 
   const handleRefresh = async () => {
-  await fetchHealthData(1);
-  if (chartRef.current) {
-    chartRef.current.refreshData();
-  }
-};
+    await fetchHealthData(1);
+    if (chartRef.current) {
+      chartRef.current.refreshData();
+    }
+  };
 
   if (healthDataLoading) {
     return (
       <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" height="100vh" bgcolor="black">
         <CircularProgress size={60} />
         <Typography variant="h6" sx={{ marginTop: '20px', color: 'white' }}>Loading your health data...</Typography>
-      </Box>
-    );
-  }
-
-  if (!user) {
-    return (
-      <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" height="100vh" bgcolor="black">
-        <Typography variant="h6" sx={{ marginTop: '20px', color: 'white' }}>Please login to view your health data.</Typography>
       </Box>
     );
   }
