@@ -45,10 +45,10 @@ function isIncomingMessage(req: any): req is IncomingMessage {
 
 function getBaseUrl(req?: IncomingMessage): string {
   if (isIncomingMessage(req)) {
-    const host = req.headers.host || 'localhost:3000';
+    const host = req.headers.host || 'demo-1biome.vercel.app';
     return `https://${host}`;
   }
-  return process.env.NEXT_PUBLIC_BASE_URL || 'https://localhost:3000';
+  return process.env.NEXT_PUBLIC_BASE_URL || 'https://demo-1biome.vercel.app';
 }
 
 export async function loadGeoData(req?: IncomingMessage): Promise<void> {
