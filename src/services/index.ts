@@ -1,3 +1,3 @@
 // src/services/index.ts
-export { default as HealthService } from './HealthContext';
+export { useHealth } from './HealthContext';
 export { NotificationService } from './NotificationService';
