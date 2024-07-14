@@ -62,7 +62,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(false);
     }
   }, [dispatch, verifyToken]);
-   
+
   const handleSignIn = useCallback(async (email: string, password: string): Promise<void> => {
     try {
       console.log('Signing in...');
@@ -83,8 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw error;
     }
   }, [signIn, router, dispatch]);
-  
-  
+
   const handleSignup = useCallback(async (signupData: UserSignupData): Promise<void> => {
     try {
       console.log('Signing up...');
