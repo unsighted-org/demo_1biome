@@ -254,6 +254,7 @@
 
 // export default LoginPage;
 
+
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { Canvas, useFrame, useThree, extend } from '@react-three/fiber';
 import { Preload, shaderMaterial } from '@react-three/drei';
@@ -504,10 +505,9 @@ const LoginPage: React.FC = () => {
     setError('');
     setIsLoading(true);
 
-    const loginData: UserLoginData = { email, password };
-
     try {
-      await signIn(loginData.email, loginData.password);
+      await signIn(email, password);
+      // If signIn is successful, it will redirect, so we don't need to do anything here
     } catch (error) {
       console.error('Login error:', error);
       setError(error instanceof Error ? error.message : 'An unexpected error occurred');
