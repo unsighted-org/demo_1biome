@@ -254,6 +254,7 @@
 
 // export default LoginPage;
 
+
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { Canvas, useFrame, useThree, extend } from '@react-three/fiber';
 import { Preload, shaderMaterial } from '@react-three/drei';
@@ -303,7 +304,7 @@ interface ShootingStarProps {
 const ShootingStar: React.FC<ShootingStarProps> = React.memo(({ position, speed, size }) => {
     const mesh = useRef<THREE.Mesh>(null);
     const trail = useRef<THREE.Mesh>(null);
-    const material = useRef<any>(null);
+    const materialRef = useRef<THREE.ShaderMaterial>(null);
     const { viewport } = useThree();
 
     useFrame((state, delta) => {
@@ -318,8 +319,8 @@ const ShootingStar: React.FC<ShootingStarProps> = React.memo(({ position, speed,
                 trail.current.scale.x = 1;
             }
         }
-        if (material.current) {
-            material.current.time = state.clock.elapsedTime;
+        if (materialRef.current) {
+            materialRef.current.uniforms.time.value = state.clock.elapsedTime;
         }
     });
 
@@ -327,7 +328,7 @@ const ShootingStar: React.FC<ShootingStarProps> = React.memo(({ position, speed,
         <group>
             <mesh ref={mesh} position={position}>
                 <sphereGeometry args={[size, 8, 8]} />
-                <mesh ref={material} material={StarMaterial} transparent={true} />
+                <starMaterial ref={materialRef} transparent={true} />
             </mesh>
             <mesh ref={trail} position={position} rotation={[0, 0, Math.PI / 4]}>
                 <planeGeometry args={[size * 10, size]} />
