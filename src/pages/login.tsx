@@ -333,14 +333,14 @@ const ShootingStar: React.FC<ShootingStarProps> = ({ position, speed, size }) =>
       mesh.current.position.x += moveX;
       mesh.current.position.y += moveY;
 
-      trail.current.position.copy(mesh.current.position);
-      trail.current.position.x -= moveX * tailLength;
-      trail.current.position.y -= moveY * tailLength;
-      trail.current.rotation.z = Math.atan2(moveY, moveX) + Math.PI;
+      // Position the trail behind the star
+      trail.current.position.x = mesh.current.position.x - (tailLength / 2) * Math.cos(Math.atan2(moveY, moveX));
+      trail.current.position.y = mesh.current.position.y - (tailLength / 2) * Math.sin(Math.atan2(moveY, moveX));
+      trail.current.rotation.z = Math.atan2(moveY, moveX);
       trail.current.scale.x = tailLength;
 
       if (mesh.current.position.x > viewport.width / 2 || mesh.current.position.y < -viewport.height / 2) {
-        mesh.current.position.set(-viewport.width / 2, viewport.height / 2 + Math.random() * viewport.height / 2, 0);
+        mesh.current.position.set(-viewport.width / 2, viewport.height / 2 + Math.random() * viewport.height / 2, -50);
         trail.current.scale.x = 1;
       }
     }
@@ -351,10 +351,6 @@ const ShootingStar: React.FC<ShootingStarProps> = ({ position, speed, size }) =>
 
   return (
     <group>
-      <mesh ref={mesh} position={position}>
-        <sphereGeometry args={[size, 16, 16]} />
-        <starMaterialShader ref={materialRef} color={new THREE.Color(1, 1, 1)} />
-      </mesh>
       <mesh ref={trail} position={position}>
         <planeGeometry args={[1, size * 2]} />
         <shaderMaterial
@@ -378,11 +374,15 @@ const ShootingStar: React.FC<ShootingStarProps> = ({ position, speed, size }) =>
             uniform float tailOpacity;
             varying vec2 vUv;
             void main() {
-              float alpha = smoothstep(1.0, 0.0, vUv.x) * tailOpacity;
+              float alpha = smoothstep(0.0, 1.0, vUv.x) * tailOpacity;
               gl_FragColor = vec4(color, alpha);
             }
           `}
         />
+      </mesh>
+      <mesh ref={mesh} position={position}>
+        <sphereGeometry args={[size, 16, 16]} />
+        <starMaterialShader ref={materialRef} color={new THREE.Color(1, 1, 1)} />
       </mesh>
     </group>
   );
@@ -398,7 +398,7 @@ const ShootingStars: React.FC = React.memo(() => {
       position: new THREE.Vector3(
         -viewport.width / 2,
         viewport.height / 2 + Math.random() * viewport.height / 2,
-        Math.random() * -50
+        -50 // Pushing back farther in Z-axis
       ),
       speed: Math.random() * 15 + 10,
       size: Math.random() * 0.05 + 0.05,
@@ -441,18 +441,25 @@ const ShootingStars: React.FC = React.memo(() => {
 });
 
 const BackgroundStars: React.FC = () => {
-  const starsCount = 1000;
-  const [positions, sizes] = useMemo(() => {
+  const starsCount = 2000; // Increased star count for more depth
+  const [positions, sizes, opacities] = useMemo(() => {
     const pos = new Float32Array(starsCount * 3);
     const sizes = new Float32Array(starsCount);
+    const opacities = new Float32Array(starsCount);
     for (let i = 0; i < starsCount; i++) {
       const i3 = i * 3;
       pos[i3] = (Math.random() - 0.5) * 800;
       pos[i3 + 1] = (Math.random() - 0.5) * 800;
       pos[i3 + 2] = Math.random() * -400;
-      sizes[i] = Math.random() * 1.5 + 0.5;
+      
+      // Adjust size based on z-position
+      const sizeScale = Math.max(0.1, 1 + pos[i3 + 2] / 400);
+      sizes[i] = (Math.random() * 1.5 + 0.5) * sizeScale;
+      
+      // Adjust opacity based on z-position
+      opacities[i] = Math.max(0.1, 1 + pos[i3 + 2] / 400);
     }
-    return [pos, sizes];
+    return [pos, sizes, opacities];
   }, []);
 
   return (
@@ -470,8 +477,35 @@ const BackgroundStars: React.FC = () => {
           array={sizes}
           itemSize={1}
         />
+        <bufferAttribute
+          attach="attributes-opacity"
+          count={opacities.length}
+          array={opacities}
+          itemSize={1}
+        />
       </bufferGeometry>
-      <pointsMaterial size={1} sizeAttenuation color={0xffffff} />
+      <shaderMaterial
+        transparent
+        depthWrite={false}
+        vertexShader={`
+          attribute float size;
+          attribute float opacity;
+          varying float vOpacity;
+          void main() {
+            vOpacity = opacity;
+            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+            gl_PointSize = size * (300.0 / -mvPosition.z);
+            gl_Position = projectionMatrix * mvPosition;
+          }
+        `}
+        fragmentShader={`
+          varying float vOpacity;
+          void main() {
+            if (length(gl_PointCoord - vec2(0.5, 0.5)) > 0.5) discard;
+            gl_FragColor = vec4(1.0, 1.0, 1.0, vOpacity);
+          }
+        `}
+      />
     </points>
   );
 };
