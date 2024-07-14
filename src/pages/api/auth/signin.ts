@@ -1,10 +1,11 @@
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
 import { sign } from 'jsonwebtoken';
+import { ObjectId } from 'mongodb';
 
 import { getCosmosClient } from '@/config/azureConfig';
 
-import type { ServerUser, UserState, UserSettings } from '@/types';
+import type { ServerUser, UserState, ServerUserSettings } from '@/types';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 dotenv.config();
@@ -20,7 +21,7 @@ const signinHandler = async (req: NextApiRequest, res: NextApiResponse): Promise
     }
 
     const users = db.collection<ServerUser>('users');
-    const user = await users.findOne({ email });
+    const user = await users.findOne({ email }) as ServerUser | null;
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -31,16 +32,15 @@ const signinHandler = async (req: NextApiRequest, res: NextApiResponse): Promise
       return res.status(401).json({ error: 'Invalid password' });
     }
 
-    const token = sign({ userId: user._id as string }, process.env.JWT_SECRET!, { expiresIn: '7d' });
+    const userId = user._id.toString(); // Changed from toHexString() to toString()
 
-    // Fetch user settings
-    const userSettings = db.collection<UserSettings>('userSettings');
-    const settings = await userSettings.findOne({ userId: user._id as string }) as UserSettings | null;
+    const token = sign({ userId }, process.env.JWT_SECRET!, { expiresIn: '7d' });
 
-    // Convert to UserState format
+    const userSettings = db.collection<ServerUserSettings>('userSettings');
+    const settings = await userSettings.findOne({ userId: user._id });
+
     const userState: UserState = {
-      id: user._id as string,
-      _id: (user._id as string).toString(),
+      id: userId,
       email: user.email,
       name: user.name,
       createdAt: user.createdAt.toISOString(),
@@ -48,38 +48,27 @@ const signinHandler = async (req: NextApiRequest, res: NextApiResponse): Promise
       height: user.height,
       weight: user.weight,
       avatarUrl: user.avatarUrl,
-      connectedDevices: user.connectedDevices.map(id => id.toString()),
-      settings: settings ? {
-        dateOfBirth: settings.dateOfBirth ? settings.dateOfBirth.toString() : undefined,
-        height: settings.height,
-        weight: settings.weight,
-        connectedDevices: settings.connectedDevices.map(id => id.toString()),
-        dailyReminder: settings.dailyReminder,
-        weeklySummary: settings.weeklySummary,
-        shareData: settings.shareData,
-        notificationsEnabled: settings.notificationsEnabled,
-        dataRetentionPeriod: settings.dataRetentionPeriod,
-        notificationPreferences: {
-          heartRate: false,
-          stepGoal: false,
-          environmentalImpact: false
-        }
-      } : {
-        connectedDevices: [],
-        dailyReminder: false,
-        weeklySummary: false,
-        shareData: false,
-        notificationsEnabled: false,
-        dataRetentionPeriod: 0,
-        notificationPreferences: {
+      connectedDevices: user.connectedDevices.map(id => id.toString()), // Changed from toHexString() to toString()
+      settings: {
+        dateOfBirth: settings?.dateOfBirth?.toISOString(),
+        height: settings?.height,
+        weight: settings?.weight,
+        connectedDevices: settings?.connectedDevices.map(id => id.toString()) ?? [], // Changed from toHexString() to toString()
+        dailyReminder: settings?.dailyReminder ?? false,
+        weeklySummary: settings?.weeklySummary ?? false,
+        shareData: settings?.shareData ?? false,
+        notificationsEnabled: settings?.notificationsEnabled ?? false,
+        dataRetentionPeriod: settings?.dataRetentionPeriod ?? 0,
+        notificationPreferences: settings?.notificationPreferences ?? {
           heartRate: false,
           stepGoal: false,
           environmentalImpact: false
         }
       },
-      fcmToken: null, // Assuming fcmToken is not stored in the user document
+      fcmToken: null,
       token,
-      enabled: true // Assuming all signed-in users are enabled
+      enabled: true,
+      _id: ''
     };
 
     res.status(200).json(userState);
