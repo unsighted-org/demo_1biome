@@ -1,12 +1,11 @@
-// src/components/Globe.tsx
 import React, { useRef, useMemo, useEffect } from 'react';
 import { useFrame, useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
 import { TextureLoader } from 'three';
-import { 
-  latLongToVector3, 
-  getColorFromScore, 
-  createAdvancedGlowMaterial, 
+import {
+  latLongToVector3,
+  getColorFromScore,
+  createAdvancedGlowMaterial,
   createBeamMesh,
   createImprovedEarthMaterial,
   createStarField,
@@ -23,7 +22,7 @@ const Globe: React.FC<GlobeProps> = ({ healthData, displayMetric }) => {
   const globeRef = useRef<THREE.Mesh>(null);
   const pointsRef = useRef<THREE.InstancedMesh>(null);
   const beamsRef = useRef<THREE.Group>(null);
-  const starsRef = useRef<THREE.Points>(null);
+  const starsRef = useRef<THREE.Group>(null);  // Changed from THREE.Points to THREE.Group
 
   const earthTexture = useLoader(TextureLoader, '/earth-dark.jpg');
   const cloudTexture = useLoader(TextureLoader, '/earth-topology.png');
