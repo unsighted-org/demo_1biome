@@ -253,8 +253,6 @@
 // };
 
 // export default LoginPage;
-
-
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { Canvas, useFrame, useThree, extend } from '@react-three/fiber';
 import { Preload, shaderMaterial } from '@react-three/drei';
@@ -267,189 +265,231 @@ import Link from 'next/link';
 
 import { useAuth } from '@/context/AuthContext';
 import type { UserLoginData } from '@/types';
-import { Object3DNode } from '@react-three/fiber'
 
+// Custom star shader
+interface ShootingStarProps {
+  position: THREE.Vector3;
+  speed: number;
+  size: number;
+}
+
+// Define the type for the custom shader material
+type StarMaterialImpl = {
+  time: { value: number };
+  color: { value: THREE.Color };
+} & THREE.ShaderMaterial;
+
+// Create the custom shader material
+const StarMaterialShader = shaderMaterial(
+  { time: 0, color: new THREE.Color(1, 1, 1) },
+  // vertex shader
+  `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  // fragment shader
+  `
+    uniform float time;
+    uniform vec3 color;
+    varying vec2 vUv;
+    void main() {
+      vec2 center = vec2(0.5, 0.5);
+      float d = distance(vUv, center);
+      float alpha = smoothstep(0.5, 0.2, d);
+      gl_FragColor = vec4(color, alpha * (0.8 + 0.2 * sin(time * 10.0)));
+    }
+  `
+);
+
+// Extend Three.js with our custom material
+extend({ StarMaterialShader });
+
+// Augment JSX IntrinsicElements to include our custom element
 declare global {
   namespace JSX {
     interface IntrinsicElements {
-      starMaterial: Object3DNode<THREE.ShaderMaterial, typeof shaderMaterial>
+      starMaterialShader: React.PropsWithChildren<{ ref?: React.Ref<StarMaterialImpl>, color?: THREE.Color }>;
     }
   }
 }
 
-interface ShootingStarProps {
-    position: THREE.Vector3;
-    speed: number;
-    size: number;
-}
-
-const ShootingStar: React.FC<ShootingStarProps> = React.memo(({ position, speed, size }) => {
-    const mesh = useRef<THREE.Mesh>(null);
-    const trail = useRef<THREE.Mesh>(null);
-    const materialRef = useRef<THREE.ShaderMaterial & { time: { value: number } }>(null);
+const ShootingStar: React.FC<ShootingStarProps> = ({ position, speed, size }) => {
+  const mesh = useRef<THREE.Mesh | null>(null);
+  const trail = useRef<THREE.Mesh | null>(null);
+  const materialRef = useRef<StarMaterialImpl>(null);
   const { viewport } = useThree();
-  
 
-    // Custom star shader
-const StarMaterial = shaderMaterial(
-    { time: 0, color: new THREE.Color(0.2, 0.8, 1) },
-    // vertex shader
-    `
-        varying vec2 vUv;
-        void main() {
-            vUv = uv;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-    `,
-    // fragment shader
-    `
-        uniform float time;
-        uniform vec3 color;
-        varying vec2 vUv;
-        void main() {
-            vec2 center = vec2(0.5, 0.5);
-            float d = distance(vUv, center);
-            float alpha = smoothstep(0.5, 0.2, d);
-            gl_FragColor = vec4(color, alpha * (0.8 + 0.2 * sin(time * 10.0)));
-        }
-    `
-);
+  const tailLength = useMemo(() => speed * 0.2, [speed]);
+  const tailOpacity = useMemo(() => Math.min(speed * 0.03, 0.7), [speed]);
 
-extend({ StarMaterial });
+  useFrame((state, delta) => {
+    if (mesh.current && trail.current) {
+      const moveX = speed * delta;
+      const moveY = -speed * delta * 0.5;
 
-    useFrame((state, delta) => {
-        if (mesh.current && trail.current) {
-            mesh.current.position.x += speed * delta;
-            mesh.current.position.y -= speed * delta * 0.5;
-            trail.current.position.copy(mesh.current.position);
-            trail.current.scale.x = 1 + speed * delta * 2;
+      mesh.current.position.x += moveX;
+      mesh.current.position.y += moveY;
 
-            if (mesh.current.position.x > viewport.width / 2 || mesh.current.position.y < -viewport.height / 2) {
-                mesh.current.position.set(-viewport.width / 2, viewport.height / 2 + Math.random() * viewport.height / 2, 0);
-                trail.current.scale.x = 1;
+      trail.current.position.copy(mesh.current.position);
+      trail.current.position.x -= moveX * tailLength;
+      trail.current.position.y -= moveY * tailLength;
+      trail.current.rotation.z = Math.atan2(moveY, moveX) + Math.PI;
+      trail.current.scale.x = tailLength;
+
+      if (mesh.current.position.x > viewport.width / 2 || mesh.current.position.y < -viewport.height / 2) {
+        mesh.current.position.set(-viewport.width / 2, viewport.height / 2 + Math.random() * viewport.height / 2, 0);
+        trail.current.scale.x = 1;
+      }
+    }
+    if (materialRef.current) {
+      materialRef.current.uniforms.time.value = state.clock.getElapsedTime();
+    }
+  });
+
+  return (
+    <group>
+      <mesh ref={mesh} position={position}>
+        <sphereGeometry args={[size, 16, 16]} />
+        <starMaterialShader ref={materialRef} color={new THREE.Color(1, 1, 1)} />
+      </mesh>
+      <mesh ref={trail} position={position}>
+        <planeGeometry args={[1, size * 2]} />
+        <shaderMaterial
+          transparent
+          depthWrite={false}
+          uniforms={{
+            time: { value: 0 },
+            color: { value: new THREE.Color(1, 1, 1) },
+            tailOpacity: { value: tailOpacity },
+          }}
+          vertexShader={`
+            varying vec2 vUv;
+            void main() {
+              vUv = uv;
+              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
             }
-        }
-        if (materialRef.current) {
-            materialRef.current.uniforms.time.value = state.clock.getElapsedTime();
-        }
-    });
-
-    return (
-        <group>
-            <mesh ref={mesh} position={position}>
-                <sphereGeometry args={[size, 8, 8]} />
-                <starMaterial ref={materialRef} transparent={true} />
-            </mesh>
-            <mesh ref={trail} position={position} rotation={[0, 0, Math.PI / 4]}>
-                <planeGeometry args={[size * 10, size]} />
-                <meshBasicMaterial color={0xffffff} transparent opacity={0.2} />
-            </mesh>
-        </group>
-    );
-});
+          `}
+          fragmentShader={`
+            uniform float time;
+            uniform vec3 color;
+            uniform float tailOpacity;
+            varying vec2 vUv;
+            void main() {
+              float alpha = smoothstep(1.0, 0.0, vUv.x) * tailOpacity;
+              gl_FragColor = vec4(color, alpha);
+            }
+          `}
+        />
+      </mesh>
+    </group>
+  );
+};
 
 const ShootingStars: React.FC = React.memo(() => {
-    const [stars, setStars] = useState<ShootingStarProps[]>([]);
-    const { viewport } = useThree();
-    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [stars, setStars] = useState<ShootingStarProps[]>([]);
+  const { viewport } = useThree();
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    const createStar = useCallback(() => {
-        const newStar: ShootingStarProps = {
-            position: new THREE.Vector3(
-                -viewport.width / 2,
-                viewport.height / 2 + Math.random() * viewport.height / 2,
-                Math.random() * -50
-            ),
-            speed: Math.random() * 15 + 10,
-            size: Math.random() * 0.05 + 0.05
-        };
-        setStars(prevStars => [...prevStars, newStar].slice(-3));
-    }, [viewport]);
+  const createStar = useCallback(() => {
+    const newStar: ShootingStarProps = {
+      position: new THREE.Vector3(
+        -viewport.width / 2,
+        viewport.height / 2 + Math.random() * viewport.height / 2,
+        Math.random() * -50
+      ),
+      speed: Math.random() * 15 + 10,
+      size: Math.random() * 0.05 + 0.05,
+    };
+    setStars((prevStars) => [...prevStars, newStar].slice(-2)); // Reduce the number of concurrent stars to 2
+  }, [viewport]);
 
-    const scheduleNextStar = useCallback(() => {
-        if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        timeoutRef.current = setTimeout(() => {
-            if (stars.length < 3) {
-                createStar();
-            }
-            scheduleNextStar();
-        }, Math.random() * 3000 + 2000);
-    }, [createStar, stars.length]);
+  const scheduleNextStar = useCallback(() => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      if (stars.length < 2) { // Allow only up to 2 stars at a time
+        createStar();
+      }
+      scheduleNextStar();
+    }, Math.random() * 5000 + 5000); // Increase the interval between star creation
+  }, [createStar, stars.length]);
 
-    useEffect(() => {
-        scheduleNextStar();
-        return () => {
-            if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        };
-    }, [scheduleNextStar]);
+  useEffect(() => {
+    scheduleNextStar();
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, [scheduleNextStar]);
 
-    useEffect(() => {
-        const handleResize = () => {
-            setStars([]);
-        };
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
+  useEffect(() => {
+    const handleResize = () => {
+      setStars([]);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
-    return (
-        <>
-            {stars.map((star, i) => (
-                <ShootingStar key={i} {...star} />
-            ))}
-        </>
-    );
+  return (
+    <>
+      {stars.map((star, i) => (
+        <ShootingStar key={i} {...star} />
+      ))}
+    </>
+  );
 });
 
 const BackgroundStars: React.FC = () => {
-    const starsCount = 1000;
-    const [positions, sizes] = useMemo(() => {
-        const pos = new Float32Array(starsCount * 3);
-        const sizes = new Float32Array(starsCount);
-        for (let i = 0; i < starsCount; i++) {
-            const i3 = i * 3;
-            pos[i3] = (Math.random() - 0.5) * 800;
-            pos[i3 + 1] = (Math.random() - 0.5) * 800;
-            pos[i3 + 2] = Math.random() * -400;
-            sizes[i] = Math.random() * 1.5 + 0.5;
-        }
-        return [pos, sizes];
-    }, []);
+  const starsCount = 1000;
+  const [positions, sizes] = useMemo(() => {
+    const pos = new Float32Array(starsCount * 3);
+    const sizes = new Float32Array(starsCount);
+    for (let i = 0; i < starsCount; i++) {
+      const i3 = i * 3;
+      pos[i3] = (Math.random() - 0.5) * 800;
+      pos[i3 + 1] = (Math.random() - 0.5) * 800;
+      pos[i3 + 2] = Math.random() * -400;
+      sizes[i] = Math.random() * 1.5 + 0.5;
+    }
+    return [pos, sizes];
+  }, []);
 
-    return (
-        <points>
-            <bufferGeometry>
-                <bufferAttribute
-                    attach="attributes-position"
-                    count={positions.length / 3}
-                    array={positions}
-                    itemSize={3}
-                />
-                <bufferAttribute
-                    attach="attributes-size"
-                    count={sizes.length}
-                    array={sizes}
-                    itemSize={1}
-                />
-            </bufferGeometry>
-            <pointsMaterial size={1} sizeAttenuation color={0xffffff} />
-        </points>
-    );
+  return (
+    <points>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          count={positions.length / 3}
+          array={positions}
+          itemSize={3}
+        />
+        <bufferAttribute
+          attach="attributes-size"
+          count={sizes.length}
+          array={sizes}
+          itemSize={1}
+        />
+      </bufferGeometry>
+      <pointsMaterial size={1} sizeAttenuation color={0xffffff} />
+    </points>
+  );
 };
 
 const SpaceScene: React.FC = React.memo(() => {
-    const { camera, viewport } = useThree();
+  const { camera, viewport } = useThree();
 
-    useFrame(({ mouse }) => {
-        camera.position.x = THREE.MathUtils.lerp(camera.position.x, (mouse.x * viewport.width) / 100, 0.05);
-        camera.position.y = THREE.MathUtils.lerp(camera.position.y, (mouse.y * viewport.height) / 100, 0.05);
-    });
+  useFrame(({ mouse }) => {
+    camera.position.x = THREE.MathUtils.lerp(camera.position.x, (mouse.x * viewport.width) / 100, 0.05);
+    camera.position.y = THREE.MathUtils.lerp(camera.position.y, (mouse.y * viewport.height) / 100, 0.05);
+  });
 
-    return (
-        <>
-            <BackgroundStars />
-            <ShootingStars />
-        </>
-    );
+  return (
+    <>
+      <BackgroundStars />
+      <ShootingStars />
+    </>
+  );
 });
 
 const StyledTextField = styled(TextField)(({ theme }) => ({
@@ -505,9 +545,10 @@ const LoginPage: React.FC = () => {
     setError('');
     setIsLoading(true);
 
+    const loginData: UserLoginData = { email, password };
+
     try {
-      await signIn(email, password);
-      // If signIn is successful, it will redirect, so we don't need to do anything here
+      await signIn(loginData.email, loginData.password);
     } catch (error) {
       console.error('Login error:', error);
       setError(error instanceof Error ? error.message : 'An unexpected error occurred');
