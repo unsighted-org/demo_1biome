@@ -253,6 +253,8 @@
 // };
 
 // export default LoginPage;
+
+
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { Canvas, useFrame, useThree, extend } from '@react-three/fiber';
 import { Preload, shaderMaterial } from '@react-three/drei';
@@ -265,6 +267,7 @@ import Link from 'next/link';
 
 import { useAuth } from '@/context/AuthContext';
 import type { UserLoginData } from '@/types';
+import { useRouter } from 'next/router';
 
 // Custom star shader
 interface ShootingStarProps {
@@ -573,6 +576,7 @@ const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { signIn } = useAuth();
+  const router = useRouter();
 
   const handleLogin = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -583,18 +587,18 @@ const LoginPage: React.FC = () => {
 
     try {
       await signIn(loginData.email, loginData.password);
+      router.push('/globescreen');
     } catch (error) {
       console.error('Login error:', error);
       setError(error instanceof Error ? error.message : 'An unexpected error occurred');
     } finally {
       setIsLoading(false);
     }
-  }, [email, password, signIn]);
+  }, [email, password, signIn, router]);
 
   return (
     <Box sx={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden' }}>
       <Canvas camera={{ position: [0, 0, 50], fov: 60 }}>
-        <Preload all />
         <SpaceScene />
       </Canvas>
       <Box
@@ -628,19 +632,7 @@ const LoginPage: React.FC = () => {
               borderRadius: 2,
             }}
           >
-            <Typography
-              variant="h3"
-              component="h1"
-              align="center"
-              sx={{
-                mb: 4,
-                color: '#FFFFFF',
-                fontWeight: 'bold',
-                fontFamily: '"SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif',
-                letterSpacing: '-0.05em',
-                fontSize: '2.5rem',
-              }}
-            >
+            <Typography variant="h3" component="h1" align="center" sx={{ mb: 4, color: '#FFFFFF', /* ... */ }}>
               1Biome
             </Typography>
             
