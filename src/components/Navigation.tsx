@@ -1,18 +1,12 @@
 import { Public, Dashboard, Person, Settings } from '@mui/icons-material';
 import { Button, Box, useTheme, useMediaQuery } from '@mui/material';
 import Link from 'next/link';
-import React, { useMemo } from 'react';
+import React from 'react';
+
 import { useAuth } from '@/context/AuthContext';
 import { useRoutes } from '@/hooks/useRoutes';
-import type { NavItem, AppRoutes } from '@/types';
 
-const BASE_NAV_ITEMS: NavItem[] = [
-  { route: 'main', label: 'Main', icon: <Dashboard /> },
-  { route: 'profile', label: 'Profile', icon: <Person /> },
-  { route: 'settings', label: 'Settings', icon: <Settings /> },
-  { route: 'globescreen', label: 'Globe', icon: <Public /> },
-  { route: 'stats', label: 'Stats', icon: <Settings /> },
-];
+import type { NavItem } from '@/types';
 
 export default function Navigation(): JSX.Element {
   const { routes, currentRoute } = useRoutes();
@@ -20,13 +14,18 @@ export default function Navigation(): JSX.Element {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { user } = useAuth();
 
-  const navItems = useMemo(() => {
-    const items = [...BASE_NAV_ITEMS];
-    if (!user) {
-      items.push({ route: 'login', label: 'Login', icon: <Person /> });
-    }
-    return items;
-  }, [user]);
+  const navItems: NavItem[] = [
+    { route: 'main', label: 'Main', icon: <Dashboard /> },
+    { route: 'profile', label: 'Profile', icon: <Person /> },
+    { route: 'settings', label: 'Settings', icon: <Settings /> },
+    { route: 'globescreen', label: 'Globe', icon: <Public /> },
+    { route: 'stats', label: 'Stats', icon: <Settings /> },
+  ];
+
+  // Add the Login button if the user is not logged in
+  if (!user) {
+    navItems.push({ route: 'login', label: 'Login', icon: <Person /> });
+  }
 
   return (
     <Box sx={{ display: 'flex', gap: 1 }}>
@@ -35,7 +34,7 @@ export default function Navigation(): JSX.Element {
           key={item.route}
           color="inherit"
           component={Link}
-          href={routes[item.route as keyof AppRoutes]}
+          href={routes[item.route]}
           variant={currentRoute === item.route ? 'contained' : 'text'}
           startIcon={item.icon}
           sx={{
