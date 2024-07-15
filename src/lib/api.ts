@@ -1,6 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import { useState, useCallback } from 'react';
-import type { UserSettings, UserState, UserSignupData } from '@/types';
+import type { UserSettings, UserState, UserSignupData, UserLoginData } from '@/types';
 
 const createApi = (initialToken: string | null): {
   instance: AxiosInstance;
@@ -45,7 +45,8 @@ export const useApi = (): UseApiReturn => {
   }, [setApiToken]);
 
   const signIn = useCallback(async (email: string, password: string): Promise<UserState> => {
-    const response = await api.post<UserState>('/auth/signin', { email, password });
+    const loginData: UserLoginData = { email, password };
+    const response = await api.post<UserState>('/auth/signin', loginData);
     setToken(response.data.token);
     return response.data;
   }, [api, setToken]);
