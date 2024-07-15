@@ -1,11 +1,10 @@
 import { useRouter } from 'next/router';
 import { createContext, useState, useContext, useEffect, useCallback } from 'react';
-import { notificationService, setUser, clearUser, RootState, updateSettings as updateSettingsAction } from '@/store';
+import { notificationService, setUser, clearUser, RootState, updateSettings as updateSettingsAction, clearHealthData } from '@/store';
 import useApi from '@/lib/api';
 import type { UserState, UserSettings, UserSignupData } from '@/types';
 import { useDispatch, useSelector } from 'react-redux';
 import Cookies from 'js-cookie';
-// Remove the import statement
 
 interface AuthContextData {
   user: UserState | null;
@@ -25,6 +24,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const dispatch = useDispatch();
   const router = useRouter();
+  const user = useSelector((state: RootState) => state.user);
   const {
     signIn,
     signUp,
@@ -40,77 +40,57 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const storedToken = Cookies.get('auth_token');
     if (storedToken) {
-      const verifyTokenAndFetchUserData = async () => {
-        try {
-          console.log('Verifying token and fetching user data');
-          const userData = await verifyToken(storedToken);
-          console.log('User data fetched:', userData);
-          dispatch(setUser(userData));
-          notificationService.setAuthContext(userData, storedToken);
-          await notificationService.init();
-        } catch (error) {
-          console.error('Token verification failed:', error);
-          Cookies.remove('auth_token');
-          dispatch(clearUser());
-        } finally {
-          setLoading(false);
-        }
-      };
-      verifyTokenAndFetchUserData();
+      verifyTokenAndFetchUserData(storedToken);
     } else {
-      console.log('No stored token found');
       setLoading(false);
     }
-  }, [dispatch, verifyToken]);
+  }, []);
 
-  const redirectToAppropriateRoute = useCallback(() => {
-    if (router.pathname === '/login' || router.pathname === '/signup') {
-      router.push('/globescreen');
+  const verifyTokenAndFetchUserData = async (token: string) => {
+    try {
+      const userData = await verifyToken(token);
+      dispatch(setUser(userData));
+      notificationService.setAuthContext(userData, token);
+      await notificationService.init();
+    } catch (error) {
+      console.error('Token verification failed:', error);
+      Cookies.remove('auth_token');
+      dispatch(clearUser());
+    } finally {
+      setLoading(false);
     }
-  }, [router]);
-  
-  const user = useSelector((state: RootState) => state.user); // Declare the 'user' variable
-  
+  };
+
   useEffect(() => {
-    if (user && !loading) {
-      redirectToAppropriateRoute();
-    } else if (!user && !loading) {
-      if (router.pathname !== '/login' && router.pathname !== '/signup') {
+    if (!loading) {
+      const isPublicPage = ['/login', '/signup', '/', '/splashPage'].includes(router.pathname);
+      if (user && user.id) {
+        if (isPublicPage) {
+          router.push('/globescreen');
+        }
+      } else if (!isPublicPage) {
         router.push('/login');
       }
     }
-  }, [user, loading, redirectToAppropriateRoute, router]);
-      
-    const handleSignIn = useCallback(async (email: string, password: string): Promise<void> => {
-      setLoading(true);
-      try {
-      console.log('Signing in...');
+  }, [user, loading, router.pathname]);
+
+  const handleSignIn = useCallback(async (email: string, password: string): Promise<void> => {
+    setLoading(true);
+    try {
       const userState = await signIn(email, password);
-      console.log('Sign in successful, user state:', userState);
       dispatch(setUser(userState));
       Cookies.set('auth_token', userState.token, { expires: 7 });
-      console.log('Token set in cookie');
-      console.log('Initializing notification service after sign in');
-      notificationService.setAuthContext(userState, userState.token);
-      console.log('Auth context set in notification service');
+      await notificationService.setAuthContext(userState, userState.token);
       await notificationService.init();
-      console.log('Notification service initialized');
-      console.log('Redirecting to /globescreen');
       router.push('/globescreen');
-    setLoading(false);
-    redirectToAppropriateRoute();
-  } catch (error) {
-    setLoading(false);
-    console.error('Sign in error:', error);
-    // Handle specific error types if needed
-    if ((error as any).response?.status === 401) {
-      // Handle unauthorized error
-    } else {
-      // Handle other types of errors
+    } catch (error) {
+      console.error('Sign in error:', error);
+      throw error;
+    } finally {
+      setLoading(false);
     }
-  }
-    }, [signIn, dispatch, redirectToAppropriateRoute]);
-  
+  }, [signIn, dispatch, router]);
+
   const handleSignup = useCallback(async (signupData: UserSignupData): Promise<void> => {
     try {
       console.log('Signing up...');
@@ -129,17 +109,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [signUp, router, dispatch]);
 
   const handleSignOut = useCallback(async (): Promise<void> => {
+    setLoading(true);
     try {
       await signOut();
       dispatch(clearUser());
+      dispatch(clearHealthData());
       Cookies.remove('auth_token');
       await notificationService.revokeNotificationToken('');
-      router.push('/login');
     } catch (error) {
       console.error('Sign out error:', error);
-      throw error;
+    } finally {
+      setLoading(false);
+      window.location.href = '/login';
     }
-  }, [signOut, router, dispatch]);
+  }, [signOut, dispatch]);
 
   const handleDeleteAccount = useCallback(async (password: string): Promise<void> => {
     try {
@@ -159,7 +142,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const updatedSettings = await updateUserSettings(settings);
       dispatch(updateSettingsAction(updatedSettings));
       
-      // Handle notification preferences update
       if (settings.notificationPreferences) {
         notificationService.updateUserPreferences(settings.notificationPreferences);
       }
@@ -182,7 +164,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <AuthContext.Provider value={{
-      user: useSelector((state: RootState) => state.user),
+      user,
       token,
       signIn: handleSignIn,
       signup: handleSignup,
