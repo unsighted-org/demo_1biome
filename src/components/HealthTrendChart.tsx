@@ -141,7 +141,7 @@ const HealthTrendChart = forwardRef(({ onDataUpdate }: HealthTrendChartProps, re
   if (!healthData || healthData.length === 0) {
     return <Typography>No health data available</Typography>;
   }
-
+  
   return (
     <Card className="health-trend-card">
       <CardHeader title={<Typography variant="h6">Health Trends</Typography>} />
