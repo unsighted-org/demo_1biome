@@ -18,7 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
-  
+
   const { token } = req.body;
   if (!token) {
     return res.status(400).json({ error: 'Token is required' });
@@ -36,10 +36,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       throw new Error('Database is undefined');
     }
 
-    const usersCollection = db.collection<ServerUser>('Users');
-    const settingsCollection = db.collection<ServerUserSettings>('UserSettings');
+    const usersCollection = db.collection<ServerUser>('users');
+    const settingsCollection = db.collection<ServerUserSettings>('userSettings');
     const userObjectId = new ObjectId(userId);
-    
+
     const serverUser = await usersCollection.findOne({ _id: userObjectId }) as ServerUser;
     if (!serverUser) {
       return res.status(404).json({ error: 'User not found' });
@@ -47,7 +47,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const serverSettings = await settingsCollection.findOne({ userId: userObjectId }) as ServerUserSettings;
     const userResponse = convertToUserState(serverUser, serverSettings, token);
-    
+
     return res.status(200).json(userResponse);
   } catch (error) {
     console.error('Token verification error:', error);
