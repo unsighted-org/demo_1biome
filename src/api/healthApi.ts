@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { HealthEnvironmentData, HealthScores, RegionalComparison, EnterpriseAnalytics, EnterpriseGlobeData, EnterpriseUser } from '../types';
+import type { HealthEnvironmentData, HealthScores, RegionalComparison, EnterpriseUser } from '../types';
 import io from 'socket.io-client';
 
 const BASE_URL = '/api/health-data';
@@ -43,12 +43,12 @@ export const healthApi = {
   },
 
   // Enterprise-specific methods
-  getEnterpriseAnalytics: async (enterpriseId: string): Promise<EnterpriseAnalytics> => {
+  getEnterpriseAnalytics: async (enterpriseId: string): Promise<EnterpriseUser> => {
     const response = await axios.get(`${BASE_URL}/enterprise/${enterpriseId}/analytics`);
     return response.data;
   },
 
-  getEnterpriseGlobeData: async (enterpriseId: string): Promise<EnterpriseGlobeData> => {
+  getEnterpriseGlobeData: async (enterpriseId: string): Promise<EnterpriseUser> => {
     const response = await axios.get(`${BASE_URL}/enterprise/${enterpriseId}/globe-data`);
     return response.data;
   },
