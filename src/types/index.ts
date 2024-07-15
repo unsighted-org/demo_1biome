@@ -1,13 +1,5 @@
 import type { ObjectId } from 'mongodb';
 
-// Enums
-export enum EnterpriseType {
-  INSURANCE = 'insurance',
-  GYM = 'gym',
-  MUNICIPAL = 'municipal',
-  ENVIRONMENTAL_AGENCY = 'environmental_agency',
-}
-
 // User-related interfaces
 export interface User {
   _id: string;
@@ -22,72 +14,19 @@ export interface User {
   connectedDevices: string[];
 }
 
-export interface EnterpriseUser extends User {
-  enterprise: {
-    type: EnterpriseType;
+export interface EnterpriseUser extends User { 
+  enterprise?: {
     name: string;
     contactNumber: string;
     address: string;
-    additionalInfo: EnterpriseAdditionalInfo;
   }
 }
 
-export type EnterpriseAdditionalInfo = 
-  | InsuranceInfo
-  | GymInfo
-  | MunicipalInfo
-  | EnvironmentalAgencyInfo;
-
-export interface InsuranceInfo {
-  insuranceType: 'health' | 'life';
-  licenseNumber: string;
-  coverageAreas: string[];
-}
-
-export interface GymInfo {
-  facilities: string[];
-  membershipTypes: string[];
-  totalMembers: number;
-}
-
-export interface MunicipalInfo {
-  cityName: string;
-  population: number;
-  governmentType: string;
-}
-
-export interface EnvironmentalAgencyInfo {
-  jurisdiction: string;
-  focusAreas: string[];
-  certifications: string[];
-}
-
 export interface InsuranceUser extends EnterpriseUser {
-  enterprise: {
-    type: EnterpriseType.INSURANCE;
-    name: string;
-    contactNumber: string;
-    address: string;
-    additionalInfo: InsuranceInfo;
-  };
-  policies: Policy[];
-}
-
-export interface Policy {
-  policyNumber: string;
-  policyType: 'health' | 'life';
-  coverageAmount: number;
-  premiumAmount: number;
-  startDate: string; // ISO 8601 string (date only)
-  endDate: string; // ISO 8601 string (date only)
-  riskAssessment: RiskAssessment;
-}
-
-export interface RiskAssessment {
-  overallScore: number;
-  healthScore: number;
-  environmentalScore: number;
-  locationRiskFactor: number;
+  insuranceProvider?: {
+    policyNumber: string
+    expiryDate: string; // ISO 8601 string (date only)
+  }
 }
 
 export type UserResponse = Omit<User, 'password'> & {
@@ -118,6 +57,7 @@ export interface UserSignupData {
   weight?: number;
   avatarFile?: File | Blob | string; // Updated type
 }
+
 
 export interface UserLoginData {
   email: string;
@@ -205,7 +145,10 @@ export interface HealthScores {
   timestamp: string; // ISO 8601 string
 }
 
-export interface HealthEnvironmentData extends Omit<BasicHealthData, '_id'>, Omit<EnvironmentalData, '_id'> {
+export interface HealthEnvironmentData extends 
+  Omit<BasicHealthData, '_id'>, 
+  Omit<EnvironmentalData, '_id'>,
+  Omit<HealthScores, '_id' | 'userId'> {
   _id: string;
   basicHealthId: string;
   environmentalId: string;
@@ -215,10 +158,6 @@ export interface HealthEnvironmentData extends Omit<BasicHealthData, '_id'>, Omi
   respiratoryRate: number;
   oxygenSaturation: number;
   activeEnergyBurned: number;
-  cardioHealthScore: number;
-  respiratoryHealthScore: number;
-  physicalActivityScore: number;
-  environmentalImpactScore: number;
   nearestCity: string;
   onBorder: string[];
   country: string;
@@ -310,23 +249,11 @@ export interface ServerUser {
   deletedAt: Date | null;
 }
 
-export interface ServerUserSettings {
+export interface ServerUserSettings extends Omit<UserSettings, '_id' | 'userId' | 'dateOfBirth' | 'connectedDevices'> {
   _id: ObjectId;
   userId: ObjectId;
   dateOfBirth?: Date;
-  height?: number;
-  weight?: number;
   connectedDevices: ObjectId[];
-  dailyReminder: boolean;
-  weeklySummary: boolean;
-  shareData: boolean;
-  notificationsEnabled: boolean;
-  notificationPreferences: {
-    heartRate: boolean;
-    stepGoal: boolean;
-    environmentalImpact: boolean;
-  };
-  dataRetentionPeriod: number;
 }
 
 export interface ServerBasicHealthData {
@@ -362,60 +289,6 @@ export interface ServerHealthScores {
   physicalActivityScore: number;
   environmentalImpactScore: number;
   timestamp: Date;
-}
-
-// Enterprise-specific interfaces
-export interface EnterpriseAnalytics {
-  aggregateHealthScores: AggregateHealthScores;
-  environmentalImpact: EnvironmentalImpact;
-  userEngagement: UserEngagement;
-}
-
-export interface AggregateHealthScores {
-  averageCardioHealthScore: number;
-  averageRespiratoryHealthScore: number;
-  averagePhysicalActivityScore: number;
-  averageEnvironmentalImpactScore: number;
-}
-
-export interface EnvironmentalImpact {
-  averageAirQualityIndex: number;
-  averageNoiseLevel: number;
-  averageUVIndex: number;
-  topEnvironmentalConcerns: string[];
-}
-
-export interface UserEngagement {
-  totalActiveUsers: number;
-  averageDailyUsage: number;
-  mostUsedFeatures: string[];
-}
-
-export interface EnterpriseGlobeData {
-  locations: Location[];
-  healthHeatmap: HealthHeatmapData[];
-  environmentalHeatmap: EnvironmentalHeatmapData[];
-}
-
-export interface HealthHeatmapData {
-  location: Location;
-  intensity: number;
-  healthMetric: 'cardio' | 'respiratory' | 'physicalActivity';
-}
-
-export interface EnvironmentalHeatmapData {
-  location: Location;
-  intensity: number;
-  environmentalMetric: 'airQuality' | 'noise' | 'uvIndex';
-}
-
-// Enterprise API service interface
-export interface EnterpriseApiService {
-  getEnterpriseAnalytics(enterpriseId: string): Promise<EnterpriseAnalytics>;
-  getEnterpriseGlobeData(enterpriseId: string): Promise<EnterpriseGlobeData>;
-  updateEnterpriseInfo(enterpriseId: string, info: Partial<EnterpriseUser['enterprise']>): Promise<void>;
-  addUserToEnterprise(enterpriseId: string, userId: string): Promise<void>;
-  removeUserFromEnterprise(enterpriseId: string, userId: string): Promise<void>;
 }
 
 // Utility functions for date conversion
