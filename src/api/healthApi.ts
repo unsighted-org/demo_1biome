@@ -1,18 +1,16 @@
-// src/api/healthApi.ts
-
 import axios from 'axios';
-import type { HealthEnvironmentData, HealthScores, RegionalComparison, EnterpriseAnalytics, EnterpriseGlobeData, EnterpriseUser } from '@/types';
+import type { HealthEnvironmentData, HealthScores, RegionalComparison, EnterpriseAnalytics, EnterpriseGlobeData, EnterpriseUser } from '../types';
 import io from 'socket.io-client';
 
 const BASE_URL = '/api/health-data';
 
 export const healthApi = {
-  getHealthData: async (page: number = 1): Promise<{
+  getHealthData: async (userId: string, page: number = 1, limit: number = 100): Promise<{
     data: HealthEnvironmentData[];
     totalPages: number;
     currentPage: number;
   }> => {
-    const response = await axios.get(`${BASE_URL}?page=${page}`);
+    const response = await axios.get(`${BASE_URL}?userId=${userId}&page=${page}&limit=${limit}`);
     return response.data;
   },
 
@@ -31,8 +29,6 @@ export const healthApi = {
   },
 
   subscribeToRealTimeUpdates: (callback: (data: HealthEnvironmentData) => void) => {
-    // Implement WebSocket connection using socket.io-client
-    // This will connect to the WebSocket server you've set up in the API
     const socket = io(BASE_URL, {
       path: '/socket.io',
     });
