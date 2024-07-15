@@ -15,67 +15,123 @@ import {
   useTheme,
   useMediaQuery,
   Grid,
-  Snackbar,
 } from '@mui/material';
 import dynamic from 'next/dynamic';
 import type { NextPage } from 'next';
+import { useRouter } from 'next/router';
 
 import HealthTrendChart from '@/components/HealthTrendChart';
-import { useAuth } from '@/context/AuthContext';
 import { useHealth } from '@/services/HealthContext';
-import { formatDate, calculateBMI, getActivityLevel, getEnvironmentalImpact, getAirQualityDescription } from '@/lib/helpers';
+import { useAuth } from '@/context/AuthContext';
+import {
+  formatDate,
+  calculateBMI,
+  getActivityLevel,
+  getEnvironmentalImpact,
+  getAirQualityDescription,
+  getUVIndexDescription,
+  getNoiseLevelDescription,
+  getHealthScoreDescription,
+} from '@/lib/helpers';
 import type { HealthEnvironmentData } from '@/types';
-import { GetServerSideProps, GetServerSidePropsContext } from 'next';
 
 const AnimatedGlobe = dynamic(() => import('@/components/AnimatedGlobe'), { ssr: false });
 
+type ProcessedHealthData = HealthEnvironmentData & {
+  formattedDate: string;
+  bmi: number;
+  activityLevel: string;
+  environmentalImpact: string;
+  airQualityDescription: string;
+  uvIndexDescription: string;
+  noiseLevelDescription: string;
+  healthScoreDescription: string;
+};
+
 const GlobePage: NextPage = () => {
-  const { user } = useAuth();
   const { fetchHealthData, loading: healthDataLoading, error, healthData } = useHealth();
+  const { user } = useAuth();
+  const router = useRouter();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const [globeData, setGlobeData] = useState<HealthEnvironmentData[]>([]);
-  const [showSnackbar, setShowSnackbar] = useState(false);
-  const [filteredHealthData, setFilteredHealthData] = useState<HealthEnvironmentData[]>([]);
+  const [processedHealthData, setProcessedHealthData] = useState<ProcessedHealthData[]>([]);
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>([]);
   const chartRef = useRef<any>(null);
+  const [page, setPage] = useState(1);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [loadingState, setLoadingState] = useState('');
 
-  const handleHealthTrendDataUpdate = useCallback((data: HealthEnvironmentData[], metrics: string[]) => {
-    setFilteredHealthData(data);
-    setSelectedMetrics(metrics);
+const processHealthData = useCallback((data: HealthEnvironmentData[]): ProcessedHealthData[] => {
+  return data.map(item => {
+    const overallHealthScore = (
+      item.cardioHealthScore +
+      item.respiratoryHealthScore +
+      item.physicalActivityScore +
+      item.environmentalImpactScore
+    ) / 4; // Simple average of all scores
+
+    return {
+      ...item,
+      formattedDate: formatDate(item.timestamp.toString()),
+      bmi: calculateBMI(Number(item.weight), Number(item.height)),
+      activityLevel: getActivityLevel(Number(item.steps)),
+      environmentalImpact: getEnvironmentalImpact(item),
+      airQualityDescription: getAirQualityDescription(Number(item.airQualityIndex)),
+      uvIndexDescription: getUVIndexDescription(Number(item.uvIndex)),
+      noiseLevelDescription: getNoiseLevelDescription(Number(item.noiseLevel)),
+      healthScoreDescription: getHealthScoreDescription(overallHealthScore),
+    };
+  });
   }, []);
 
+  const handleHealthTrendDataUpdate = useCallback((data: HealthEnvironmentData[], metrics: string[]) => {
+    const processed = processHealthData(data);
+    setProcessedHealthData(processed);
+    setSelectedMetrics(metrics);
+  }, [processHealthData]);
+
   useEffect(() => {
-    if (user && globeData.length === 0) {
-      fetchHealthData(1).catch((error) => {
-        console.error('Failed to fetch health data:', error);
+    if (isInitialLoad && user) {
+      console.log('Initial load, fetching health data');
+      setLoadingState('Fetching initial health data');
+      fetchHealthData(1).then(() => {
+        console.log('Initial health data fetched');
+        setIsInitialLoad(false);
+        setLoadingState('Processing data');
       });
     }
-  }, [user, fetchHealthData, globeData.length]);
+  }, [user, fetchHealthData, isInitialLoad]);
+
+  useEffect(() => {
+    if (!isInitialLoad && healthData.length > 0) {
+      console.log('Processing health data');
+      const processed = processHealthData(healthData);
+      setProcessedHealthData(processed);
+      setLoadingState('Ready');
+    }
+  }, [healthData, processHealthData, isInitialLoad]);
 
   const handleRefresh = async () => {
+    setPage(1);
     await fetchHealthData(1);
     if (chartRef.current) {
       chartRef.current.refreshData();
     }
   };
 
-  if (healthDataLoading) {
-    return (
-      <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" height="100vh" bgcolor="black">
-        <CircularProgress size={60} />
-        <Typography variant="h6" sx={{ marginTop: '20px', color: 'white' }}>Loading your health data...</Typography>
-      </Box>
-    );
-  }
+  const handleLoadMore = useCallback(() => {
+    setPage(prevPage => {
+      const nextPage = prevPage + 1;
+      fetchHealthData(nextPage);
+      return nextPage;
+    });
+  }, [fetchHealthData]);
 
-  if (error) {
+  if (!user || isInitialLoad) {
     return (
-      <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" height="100vh" bgcolor="black">
-        <Error color="error" sx={{ fontSize: 60, marginBottom: '20px' }} />
-        <Typography variant="h5" color="error" gutterBottom>Oops! Something went wrong.</Typography>
-        <Typography variant="body1" gutterBottom color="white">{error}</Typography>
-        <Button variant="contained" onClick={handleRefresh} startIcon={<Refresh />} sx={{ marginTop: '20px' }}>Retry</Button>
+      <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" height="100vh">
+        <CircularProgress />
+        <Typography variant="h6" style={{ marginTop: '1rem' }}>{loadingState}</Typography>
       </Box>
     );
   }
@@ -95,15 +151,32 @@ const GlobePage: NextPage = () => {
     }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4">Your Health Globe</Typography>
-        <Button variant="contained" onClick={handleRefresh} startIcon={<Refresh />}>Refresh Data</Button>
+        <Button 
+          variant="contained" 
+          onClick={handleRefresh} 
+          startIcon={<Refresh />}
+          disabled={healthDataLoading}
+        >
+          {healthDataLoading ? 'Refreshing...' : 'Refresh Data'}
+        </Button>
       </Box>
+
+      {error && (
+        <Paper sx={{ p: 2, mb: 2, bgcolor: 'error.main' }}>
+          <Typography color="error">Error: {error}</Typography>
+        </Paper>
+      )}
 
       <Grid container spacing={3}>
         <Grid item xs={12} md={8}>
-          {filteredHealthData.length > 0 ? (
+          {isInitialLoad ? (
+            <Box display="flex" justifyContent="center" alignItems="center" height="60vh" minHeight="400px">
+              <CircularProgress />
+            </Box>
+          ) : processedHealthData.length > 0 ? (
             <Box sx={{ height: '60vh', minHeight: '400px' }}>
               <AnimatedGlobe 
-                healthData={filteredHealthData} 
+                healthData={processedHealthData} 
                 isLoading={healthDataLoading} 
                 error={error} 
                 selectedMetrics={selectedMetrics}
@@ -144,18 +217,24 @@ const GlobePage: NextPage = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredHealthData.length > 0 ? (
-              filteredHealthData.map((data: HealthEnvironmentData) => (
+            {isInitialLoad ? (
+              <TableRow>
+                <TableCell colSpan={isMobile ? 4 : 7}>
+                  <Skeleton variant="rectangular" height={40} />
+                </TableCell>
+              </TableRow>
+            ) : processedHealthData.length > 0 ? (
+              processedHealthData.map((data) => (
                 <TableRow key={data.timestamp.toString()}>
-                  <TableCell>{formatDate(data.timestamp.toString())}</TableCell>
+                  <TableCell>{data.formattedDate}</TableCell>
                   <TableCell>{data.steps}</TableCell>
-                  <TableCell>{data.steps ? getActivityLevel(Number(data.steps)) : ''}</TableCell>
+                  <TableCell>{data.activityLevel}</TableCell>
                   <TableCell>{data.heartRate}</TableCell>
                   {!isMobile && (
                     <>
-                      <TableCell>{calculateBMI(Number(data.weight), Number(data.height))}</TableCell>
-                      <TableCell>{getEnvironmentalImpact(data)}</TableCell>
-                      <TableCell>{getAirQualityDescription(Number(data.airQualityIndex))}</TableCell>
+                      <TableCell>{data.bmi.toFixed(2)}</TableCell>
+                      <TableCell>{data.environmentalImpact}</TableCell>
+                      <TableCell>{data.airQualityDescription}</TableCell>
                     </>
                   )}
                 </TableRow>
@@ -163,7 +242,7 @@ const GlobePage: NextPage = () => {
             ) : (
               <TableRow>
                 <TableCell colSpan={isMobile ? 4 : 7}>
-                  <Skeleton variant="rectangular" height={40} />
+                  <Typography align="center">No health data available</Typography>
                 </TableCell>
               </TableRow>
             )}
@@ -171,32 +250,13 @@ const GlobePage: NextPage = () => {
         </Table>
       </Paper>
 
-      <Snackbar
-        open={showSnackbar}
-        autoHideDuration={6000}
-        onClose={() => setShowSnackbar(false)}
-        message="No health data available. Start tracking to see your globe!"
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      />
+      {!isInitialLoad && !healthDataLoading && healthData.length > 0 && (
+        <Button onClick={handleLoadMore} sx={{ mt: 2 }} disabled={healthDataLoading}>
+          {healthDataLoading ? 'Loading...' : 'Load More'}
+        </Button>
+      )}
     </Box>
   );
-};
-
-export const getServerSideProps: GetServerSideProps = async (
-  context: GetServerSidePropsContext
-) => {
-  const token = context.req.cookies['auth_token'];
-
-  if (!token) {
-    return {
-      redirect: {
-        destination: '/login',
-        permanent: false,
-      },
-    };
-  }
-
-  return { props: {} };
 };
 
 export default GlobePage;
