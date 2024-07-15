@@ -10,10 +10,8 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 
 import { formatDate, getHealthScoreDescription } from '@/lib/helpers';
 import { getColorForMetric, getMetricColor } from '@/lib/colorUtils';
-import { useDispatch } from 'react-redux';
-import { updateHealthData } from '@/store';
-import debounce from 'lodash/debounce';
 import type { HealthEnvironmentData } from '@/types';
+
 
 type HealthMetric = 'cardioHealthScore' | 'respiratoryHealthScore' | 'physicalActivityScore' | 'environmentalImpactScore';
 
@@ -25,22 +23,18 @@ interface HealthTrendChartProps {
   onDataUpdate: (data: HealthEnvironmentData[], selectedMetrics: string[]) => void;
 }
 
+
 const HealthTrendChart = forwardRef(({ onDataUpdate }: HealthTrendChartProps, ref) => {
-  const { healthData, fetchHealthData } = useHealth();
-  const dispatch = useDispatch();
+  const { healthData, fetchHealthData, loading } = useHealth();
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>(['cardioHealthScore', 'respiratoryHealthScore']);
   const [chartType, setChartType] = useState<'line' | 'area'>('line');
-  const [startDate, setStartDate] = useState<Date | null>(
-    healthData.length > 0 ? new Date(healthData[0].timestamp) : null
-  );
-  const [endDate, setEndDate] = useState<Date | null>(
-    healthData.length > 0 ? new Date(healthData[healthData.length - 1].timestamp) : null
-  );
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
   const [refAreaLeft, setRefAreaLeft] = useState<string>('');
   const [refAreaRight, setRefAreaRight] = useState<string>('');
-  const [startDateInput, setStartDateInput] = useState(startDate ? format(startDate, 'yyyy-MM-dd') : '');
-  const [endDateInput, setEndDateInput] = useState(endDate ? format(endDate, 'yyyy-MM-dd') : '');
+  const [startDateInput, setStartDateInput] = useState('');
+  const [endDateInput, setEndDateInput] = useState('');
   
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -51,6 +45,17 @@ const HealthTrendChart = forwardRef(({ onDataUpdate }: HealthTrendChartProps, re
     { value: 'physicalActivityScore', label: 'Physical Activity', icon: <FaRunning /> },
     { value: 'environmentalImpactScore', label: 'Environmental Impact', icon: <FaWind /> },
   ], []);
+
+  useEffect(() => {
+    if (healthData.length > 0 && !startDate && !endDate) {
+      const firstDate = new Date(healthData[0].timestamp);
+      const lastDate = new Date(healthData[healthData.length - 1].timestamp);
+      setStartDate(firstDate);
+      setEndDate(lastDate);
+      setStartDateInput(format(firstDate, 'yyyy-MM-dd'));
+      setEndDateInput(format(lastDate, 'yyyy-MM-dd'));
+    }
+  }, [healthData, startDate, endDate]);
 
   const toggleMetric = useCallback((metric: string) => {
     setSelectedMetrics(prev =>
@@ -65,26 +70,17 @@ const HealthTrendChart = forwardRef(({ onDataUpdate }: HealthTrendChartProps, re
     });
   }, [healthData, startDate, endDate]);
 
-  // Debounced dispatch function to prevent frequent updates
-  const debouncedDispatch = useCallback(
-    debounce((data) => {
-      dispatch(updateHealthData(data));
-      onDataUpdate(data, selectedMetrics);
-    }, 300), // Adjust the delay as needed
-    [dispatch, onDataUpdate, selectedMetrics]
-  );
-
   useEffect(() => {
-    if (filteredData.length > 0) {
-      debouncedDispatch(filteredData);
-    }
-  }, [filteredData, selectedMetrics, debouncedDispatch]);
+    onDataUpdate(filteredData, selectedMetrics);
+  }, [filteredData, selectedMetrics, onDataUpdate]);
 
   useImperativeHandle(ref, () => ({
     refreshData: async () => {
-      await fetchHealthData(1);
+      if (!loading) {
+        await fetchHealthData(1);
+      }
     }
-  }));
+  }), [fetchHealthData, loading]);
 
   const handleDateRangeClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
     setAnchorEl(event.currentTarget);
@@ -94,7 +90,7 @@ const HealthTrendChart = forwardRef(({ onDataUpdate }: HealthTrendChartProps, re
     setAnchorEl(null);
   }, []);
 
-  const handleDateRangeSubmit = useCallback(async () => {
+  const handleDateRangeSubmit = useCallback(() => {
     try {
       const newStartDate = new Date(startDateInput);
       const newEndDate = new Date(endDateInput);
