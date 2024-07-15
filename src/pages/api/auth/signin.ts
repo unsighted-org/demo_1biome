@@ -5,13 +5,13 @@ import { ObjectId } from 'mongodb';
 
 import { getCosmosClient } from '@/config/azureConfig';
 
-import type { ServerUser, UserState, ServerUserSettings } from '@/types';
+import type { ServerUser, UserState, ServerUserSettings, UserLoginData } from '@/types';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 dotenv.config();
 
 const signinHandler = async (req: NextApiRequest, res: NextApiResponse): Promise<void> => {
-  const { email, password } = req.body;
+  const { email, password }: UserLoginData = req.body;
 
   try {
     const client = await getCosmosClient();
@@ -32,7 +32,7 @@ const signinHandler = async (req: NextApiRequest, res: NextApiResponse): Promise
       return res.status(401).json({ error: 'Invalid password' });
     }
 
-    const userId = user._id.toString(); // Changed from toHexString() to toString()
+    const userId = user._id.toString();
 
     const token = sign({ userId }, process.env.JWT_SECRET!, { expiresIn: '7d' });
 
@@ -48,12 +48,12 @@ const signinHandler = async (req: NextApiRequest, res: NextApiResponse): Promise
       height: user.height,
       weight: user.weight,
       avatarUrl: user.avatarUrl,
-      connectedDevices: user.connectedDevices.map(id => id.toString()), // Changed from toHexString() to toString()
+      connectedDevices: user.connectedDevices.map(id => id.toString()),
       settings: {
         dateOfBirth: settings?.dateOfBirth?.toISOString(),
         height: settings?.height,
         weight: settings?.weight,
-        connectedDevices: settings?.connectedDevices.map(id => id.toString()) ?? [], // Changed from toHexString() to toString()
+        connectedDevices: settings?.connectedDevices.map(id => id.toString()) ?? [],
         dailyReminder: settings?.dailyReminder ?? false,
         weeklySummary: settings?.weeklySummary ?? false,
         shareData: settings?.shareData ?? false,
