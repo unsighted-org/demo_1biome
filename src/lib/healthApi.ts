@@ -30,8 +30,8 @@ export const healthApi = {
   },
 
   subscribeToRealTimeUpdates: (callback: (data: HealthEnvironmentData) => void) => {
-    const socket = io(BASE_URL, {
-      path: '/socket.io',
+    const socket = io({
+      path: '/api/health-data',
     });
 
     socket.on('health-data', (data: HealthEnvironmentData) => {
