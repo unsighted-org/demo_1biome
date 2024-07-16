@@ -8,7 +8,7 @@ import { useRoutes } from '@/hooks/useRoutes';
 
 import type { NavItem } from '@/types';
 
-export default function Navigation(): JSX.Element {
+export default function Navigation(): React.ReactNode {
   const { routes, currentRoute } = useRoutes();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
