@@ -1,14 +1,11 @@
 // src/lib/userUtils.ts
-import type { ServerUser, ServerUserSettings, UserState } from '../types';
 
-interface UserResponse extends UserState {
-  notifications: any[];
-}
+import type { ServerUser, ServerUserSettings, UserResponse, UserSettings } from '@/types';
 
 export function convertToUserState(serverUser: ServerUser, serverSettings: ServerUserSettings | null, token: string): UserResponse {
-  const settings = serverSettings 
+  const settings: Omit<UserSettings, '_id' | 'userId'> = serverSettings
     ? {
-        dateOfBirth: serverSettings.dateOfBirth ? serverSettings.dateOfBirth.toISOString() : undefined,
+        dateOfBirth: serverSettings.dateOfBirth?.toISOString(),
         height: serverSettings.height,
         weight: serverSettings.weight,
         connectedDevices: serverSettings.connectedDevices.map(id => id.toString()),
@@ -33,7 +30,7 @@ export function convertToUserState(serverUser: ServerUser, serverSettings: Serve
         }
       };
 
-  return {
+  const userResponse: UserResponse = {
     _id: serverUser._id.toString(),
     id: serverUser._id.toString(),
     email: serverUser.email,
@@ -47,7 +44,8 @@ export function convertToUserState(serverUser: ServerUser, serverSettings: Serve
     settings,
     fcmToken: null,
     token,
-    enabled: true,
-    notifications: []
+    enabled: !serverUser.isDeleted
   };
+
+  return userResponse;
 }

@@ -1,4 +1,5 @@
 import { azureConfig } from '@/config/azureConfig';
+
 import type { HealthEnvironmentData, UserState } from '@/types';
 
 type SetFCMTokenFunction = (token: string) => void;
@@ -8,7 +9,7 @@ export class NotificationService {
   private token: string | null = null;
   private user: UserState | null = null;
   private retryAttempts: number = 3;
-  private static BASE_URL = process.env.NODE_ENV === 'test' ? 'https://demo-1biome.vercel.app' : '';
+  private static BASE_URL = process.env.NODE_ENV === 'test' ? 'http://localhost:3000' : '';
   private setFCMToken: SetFCMTokenFunction;
   private addNotification: AddNotificationFunction;
 

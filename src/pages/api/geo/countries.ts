@@ -17,7 +17,7 @@ export default async function handler(
       return res.status(200).json(countriesCache);
     }
 
-    const filePath = path.join(process.cwd(), 'public', 'data', 'ne_110m_admin_0_countries.json');
+    const filePath = path.join(process.cwd(), 'public', 'data', 'ne_110m_admin_0_countries.geojson');
     const fileContents = await fs.readFile(filePath, 'utf8');
     const data = JSON.parse(fileContents);
     

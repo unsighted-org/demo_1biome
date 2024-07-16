@@ -145,6 +145,8 @@ export interface HealthScores {
   timestamp: string; // ISO 8601 string
 }
 
+export type HealthMetric = keyof Omit<HealthScores, '_id' | 'userId' | 'timestamp'>;
+
 export interface HealthEnvironmentData extends 
   Omit<BasicHealthData, '_id'>, 
   Omit<EnvironmentalData, '_id'>,
@@ -161,6 +163,7 @@ export interface HealthEnvironmentData extends
   nearestCity: string;
   onBorder: string[];
   country: string;
+  state: string;
   continent: string;
   airQualityDescription: string;
   uvIndexDescription: string;
@@ -168,6 +171,8 @@ export interface HealthEnvironmentData extends
   bmi: number;
   environmentalImpact: string;
   airQuality: string;
+  clusterSize?: number;
+  originalPoint?: HealthEnvironmentData;
 }
 
 export interface HealthState {
@@ -175,6 +180,8 @@ export interface HealthState {
   regionalComparison: RegionalComparison | null;
   data: HealthEnvironmentData[];
   lastSyncTime: string | null; // ISO 8601 string
+  loading: boolean;
+  error: string | null;
 }
 
 // Regional comparison interfaces
@@ -289,6 +296,25 @@ export interface ServerHealthScores {
   physicalActivityScore: number;
   environmentalImpactScore: number;
   timestamp: Date;
+}
+
+export interface ServerHealthEnvironmentData extends 
+  Omit<ServerBasicHealthData, '_id'>, 
+  Omit<ServerEnvironmentalData, '_id'>,
+  Omit<ServerHealthScores, '_id' | 'userId'> {
+  _id: ObjectId;
+  basicHealthId: ObjectId;
+  environmentalId: ObjectId;
+  scoresId: ObjectId;
+  latitude: number;
+  longitude: number;
+  respiratoryRate: number;
+  oxygenSaturation: number;
+  activeEnergyBurned: number;
+  nearestCity: string;
+  onBorder: string[];
+  country: string;
+  continent: string;
 }
 
 // Utility functions for date conversion

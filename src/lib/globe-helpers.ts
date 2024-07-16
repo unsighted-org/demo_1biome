@@ -1,36 +1,36 @@
-// src/lib/globe-helpers.ts
-
 import { extend } from '@react-three/fiber';
 import * as THREE from 'three';
+
+import type { HealthEnvironmentData, HealthMetric } from '@/types';
 
 // Advanced Glow Material with pulsating effect
 class AdvancedGlowMaterial extends THREE.ShaderMaterial {
   constructor() {
     super({
       uniforms: {
-        c: { value: 0.1 },
-        p: { value: 4.5 },
-        glowColor: { value: new THREE.Color(0x00ffff) },
-        time: { value: 0 },
+      c: { value: 0.1 },
+      p: { value: 4.5 },
+      glowColor: { value: new THREE.Color(0x000000) }, // Set glowColor to black
+      time: { value: 0 },
       },
       vertexShader: `
-        varying vec3 vNormal;
-        void main() {
-          vNormal = normalize(normalMatrix * normal);
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
+      varying vec3 vNormal;
+      void main() {
+        vNormal = normalize(normalMatrix * normal);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
       `,
       fragmentShader: `
-        uniform float c;
-        uniform float p;
-        uniform vec3 glowColor;
-        uniform float time;
-        varying vec3 vNormal;
-        void main() {
-          float intensity = pow(c - dot(vNormal, vec3(0.0, 0.0, 1.0)), p);
-          float pulsate = sin(time * 2.0) * 0.1 + 0.9;
-          gl_FragColor = vec4(glowColor, intensity * pulsate);
-        }
+      uniform float c;
+      uniform float p;
+      uniform vec3 glowColor;
+      uniform float time;
+      varying vec3 vNormal;
+      void main() {
+        float intensity = pow(c - dot(vNormal, vec3(0.0, 0.0, 1.0)), p);
+        float pulsate = sin(time * 2.0) * 0.1 + 0.9;
+        gl_FragColor = vec4(glowColor, intensity * pulsate);
+      }
       `,
       side: THREE.BackSide,
       blending: THREE.AdditiveBlending,
@@ -38,50 +38,10 @@ class AdvancedGlowMaterial extends THREE.ShaderMaterial {
     });
   }
 
-  update(time: number) {
+  update(time: number): void {
     this.uniforms.time.value = time;
   }
 }
-
-// Enhanced Light Beam Material with animation
-class BeamMaterial extends THREE.ShaderMaterial {
-  constructor() {
-    super({
-      uniforms: {
-        color: { value: new THREE.Color(0xffffff) },
-        time: { value: 0 },
-        height: { value: 0.3 },
-      },
-      vertexShader: `
-        uniform float time;
-        uniform float height;
-        varying vec2 vUv;
-        void main() {
-          vUv = uv;
-          vec3 pos = position;
-          pos.y += sin(time * 2.0 + position.y * 10.0) * 0.01;
-          pos.y *= height;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform vec3 color;
-        uniform float time;
-        varying vec2 vUv;
-        void main() {
-          float alpha = smoothstep(0.0, 0.2, 1.0 - vUv.y) * smoothstep(1.0, 0.8, 1.0 - vUv.y);
-          alpha *= 0.5 + 0.5 * sin(time * 3.0 + vUv.y * 20.0);
-          gl_FragColor = vec4(color, alpha);
-        }
-      `,
-      transparent: true,
-      side: THREE.DoubleSide,
-    });
-  }
-}
-
-extend({ BeamMaterial });
-
 
 // Improved Earth Material with dynamic cloud layer
 class ImprovedEarthMaterial extends THREE.ShaderMaterial {
@@ -122,7 +82,7 @@ class ImprovedEarthMaterial extends THREE.ShaderMaterial {
           float lighting = dot(vNormal, normalize(vec3(1, 1, 1)));
           vec3 color = mix(darkColor, lightColor, texColor.r);
           color *= 0.5 + 0.5 * lighting;
-          
+
           float atmosphere = pow(1.0 - abs(dot(vNormal, vec3(0, 0, 1))), 2.0);
           color += atmosphereColor * atmosphere * 0.3;
           color = mix(color, vec3(1.0), cloudColor.r * 0.3);
@@ -133,14 +93,12 @@ class ImprovedEarthMaterial extends THREE.ShaderMaterial {
     });
   }
 
-  update(time: number) {
+  update(time: number): void {
     this.uniforms.time.value = time;
   }
 }
 
-extend({ AdvancedGlowMaterial, BeamMaterial, ImprovedEarthMaterial });
-
-// Existing functions with minor improvements
+extend({ AdvancedGlowMaterial, ImprovedEarthMaterial });
 
 export const latLongToVector3 = (lat: number, lon: number, radius: number): THREE.Vector3 => {
   const phi = THREE.MathUtils.degToRad(90 - lat);
@@ -168,34 +126,9 @@ export const createAdvancedGlowMaterial = (): AdvancedGlowMaterial => {
   return new AdvancedGlowMaterial();
 };
 
-export const createBeamGeometry = (height: number, segments: number) => {
-  const geometry = new THREE.CylinderGeometry(0.005, 0.005, 1, segments, 1, true);
-  geometry.translate(0, 0.5, 0);
-  return geometry;
-};
-
-export const createBeamMesh = (color: THREE.Color, height: number) => {
-  const material = new BeamMaterial();
-  material.uniforms.color.value = color;
-  material.uniforms.height.value = height;
-  const mesh = new THREE.Mesh(createBeamGeometry(height, 16), material);
-  return mesh;
-};
-
-
 export const createImprovedEarthMaterial = (earthTexture: THREE.Texture, cloudTexture: THREE.Texture): ImprovedEarthMaterial => {
   return new ImprovedEarthMaterial(earthTexture, cloudTexture);
 };
-
-export const interpolateColor = (color1: THREE.Color, color2: THREE.Color, factor: number): THREE.Color => {
-  return new THREE.Color().lerpColors(color1, color2, factor);
-};
-
-export const normalizeValue = (value: number, min: number, max: number): number => {
-  return THREE.MathUtils.clamp((value - min) / (max - min), 0, 1);
-};
-
-// New utility functions
 
 export const createStarField = (count: number, radius: number): THREE.Points => {
   const geometry = new THREE.BufferGeometry();
@@ -236,7 +169,7 @@ export const createStarField = (count: number, radius: number): THREE.Points => 
       void main() {
         vColor = color;
         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-        float twinkle = sin(time * 5.0 + gl_VertexID) * 0.5 + 0.5;
+        float twinkle = sin(time * 5.0 + float(gl_VertexID)) * 0.5 + 0.5;
         gl_PointSize = size * (300.0 / -mvPosition.z) * twinkle;
         gl_Position = projectionMatrix * mvPosition;
       }
@@ -261,3 +194,177 @@ export const animateStarField = (starField: THREE.Points, time: number): void =>
     starField.material.uniforms.time.value = time;
   }
 };
+
+export const createDataPoints = (
+  healthData: HealthEnvironmentData[],
+  radius: number,
+  displayMetric: keyof HealthEnvironmentData
+): THREE.InstancedMesh => {
+  const geometry = new THREE.SphereGeometry(0.005, 16, 16);
+  const material = new THREE.MeshBasicMaterial();
+
+  const instancedMesh = new THREE.InstancedMesh(geometry, material, healthData.length);
+
+  const tempObject = new THREE.Object3D();
+  const colorArray = new Float32Array(healthData.length * 3);
+
+  healthData.forEach((data, index) => {
+    const position = latLongToVector3(data.latitude, data.longitude, radius);
+    tempObject.position.copy(position);
+    tempObject.updateMatrix();
+    instancedMesh.setMatrixAt(index, tempObject.matrix);
+
+    const score = data[displayMetric] as number;
+    const color = getColorFromScore(score);
+    colorArray[index * 3] = color.r;
+    colorArray[index * 3 + 1] = color.g;
+    colorArray[index * 3 + 2] = color.b;
+  });
+
+  instancedMesh.instanceMatrix.needsUpdate = true;
+  instancedMesh.geometry.setAttribute('color', new THREE.InstancedBufferAttribute(colorArray, 3));
+
+  return instancedMesh;
+};
+
+export const updateDataPoints = (
+  instancedMesh: THREE.InstancedMesh,
+  healthData: HealthEnvironmentData[],
+  displayMetric: keyof HealthEnvironmentData,
+  hoveredIndex: number | null,
+  selectedIndex: number | null
+): void => {
+  const colorAttribute = instancedMesh.geometry.getAttribute('color') as THREE.InstancedBufferAttribute;
+  const colorArray = colorAttribute.array as Float32Array;
+
+  healthData.forEach((data, index) => {
+    const score = data[displayMetric] as number;
+    const color = getColorFromScore(score);
+
+    if (index === hoveredIndex) {
+      color.multiplyScalar(1.5); // Brighten hovered point
+    }
+    if (index === selectedIndex) {
+      color.setRGB(1, 1, 1); // Make selected point white
+    }
+
+    colorArray[index * 3] = color.r;
+    colorArray[index * 3 + 1] = color.g;
+    colorArray[index * 3 + 2] = color.b;
+  });
+
+  colorAttribute.needsUpdate = true;
+};
+
+export const optimizeForMobile = (renderer: THREE.WebGLRenderer): void => {
+  const pixelRatio = Math.min(window.devicePixelRatio, 2);
+  renderer.setPixelRatio(pixelRatio);
+};
+
+// Helper function to check if WebGL is available
+export const isWebGLAvailable = (): boolean => {
+  try {
+    const canvas = document.createElement('canvas');
+    return !!(window.WebGLRenderingContext && (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')));
+  } catch (e) {
+    return false;
+  }
+};
+
+export const createAnimatedCloudMaterial = (cloudTexture: THREE.Texture): THREE.ShaderMaterial => {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      cloudTexture: { value: cloudTexture },
+      time: { value: 0 },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D cloudTexture;
+      uniform float time;
+      varying vec2 vUv;
+      void main() {
+        vec2 uv = vUv + vec2(time * 0.0001, 0.0);
+        vec4 color = texture2D(cloudTexture, uv);
+        gl_FragColor = color;
+      }
+    `,
+    transparent: true,
+  });
+};
+
+export const createAtmosphereMaterial = (earthTexture: THREE.Texture): THREE.ShaderMaterial => {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      earthTexture: { value: earthTexture },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D earthTexture;
+      varying vec2 vUv;
+      void main() {
+        vec4 texColor = texture2D(earthTexture, vUv);
+        gl_FragColor = texColor;
+      }
+    `,
+  });
+};
+
+
+
+export function createGeospatialMaterial(healthData: HealthEnvironmentData[], displayMetric: HealthMetric): THREE.ShaderMaterial {
+  // Create a data texture from the health data
+  const width = 360;
+  const height = 180;
+  const size = width * height;
+  const data = new Float32Array(4 * size);
+
+  for (let i = 0; i < healthData.length; i++) {
+    const datum = healthData[i];
+    const x = Math.floor((datum.longitude + 180) * (width / 360));
+    const y = Math.floor((90 - datum.latitude) * (height / 180));
+    const index = (y * width + x) * 4;
+    
+    data[index] = datum[displayMetric] / 100; // Assuming metric is normalized to 0-100
+    data[index + 1] = 0;
+    data[index + 2] = 0;
+    data[index + 3] = 1;
+  }
+
+  const dataTexture = new THREE.DataTexture(data, width, height, THREE.RGBAFormat, THREE.FloatType);
+  dataTexture.needsUpdate = true;
+
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      dataTexture: { value: dataTexture },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D dataTexture;
+      varying vec2 vUv;
+      void main() {
+        vec4 data = texture2D(dataTexture, vUv);
+        gl_FragColor = vec4(data.r, 0.0, 1.0 - data.r, 0.5);
+      }
+    `,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+  });
+}

@@ -12,7 +12,7 @@ const FallbackComponent: React.FC<FallbackProps> = ({ error, resetErrorBoundary 
 
   const handleReset = () => {
     resetErrorBoundary();
-    router.push('/'); // Redirect to home page
+    router.push('/globalscreen'); // Redirect to home page
   };
 
   return (

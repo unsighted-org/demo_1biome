@@ -1,3 +1,4 @@
+import { Box, Typography, Button } from '@mui/material';
 import React from 'react';
 
 import type { ErrorInfo, ReactNode } from 'react';
@@ -25,14 +26,40 @@ class GlobeErrorBoundary extends React.Component<Props, State> {
     console.error("Globe component error:", error, errorInfo);
   }
 
+  handleRefresh = (): void => {
+    window.location.reload();
+  };
+
   render(): React.ReactNode {
     if (this.state.hasError) {
       return (
-        <div>
-          <h2>Something went wrong with the globe visualization.</h2>
-          <p>Error: {this.state.error?.message || 'Unknown error'}</p>
-          <p>Please try refreshing the page. If the problem persists, check your browser&apos;s WebGL support.</p>
-        </div>
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          height: '100%', 
+          textAlign: 'center', 
+          p: 3 
+        }}>
+          <Typography variant="h5" gutterBottom>
+            Oops! Something went wrong with the globe visualization.
+          </Typography>
+          <Typography variant="body1" paragraph>
+            Error: {this.state.error?.message || 'Unknown error'}
+          </Typography>
+          <Typography variant="body2" paragraph>
+            Please try refreshing the page. If the problem persists, check your browser&rsquo;s WebGL support or contact support.
+          </Typography>
+          <Button 
+            variant="contained" 
+            color="primary" 
+            onClick={this.handleRefresh}
+            sx={{ mt: 2 }}
+          >
+            Refresh Page
+          </Button>
+        </Box>
       );
     }
 

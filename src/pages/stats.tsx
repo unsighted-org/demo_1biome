@@ -1,45 +1,49 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Box, Typography, CircularProgress, Alert, Grid, Paper, Tabs, Tab } from '@mui/material';
+import { Refresh } from '@mui/icons-material';
+import { Box, Typography, CircularProgress, Alert, Grid, Paper, Tabs, Tab, useTheme, useMediaQuery, Button } from '@mui/material';
 import { useRouter } from 'next/router';
-import HealthTrendChart from '@/components/HealthTrendChart';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+
 import DashboardWithErrorBoundary from '@/components/DashboardWithErrorBoundary';
+import HealthTrendChart from '@/components/HealthTrendChart';
 import { useAuth } from '@/context/AuthContext';
+import { withAuth } from '@/context/withAuth';
 import { useHealth } from '@/services/HealthContext';
-import { useAppSelector } from '@/store';
-import type { HealthEnvironmentData, HealthScores, RegionalComparison, UserState } from '@/types';
+
+import type { HealthTrendChartRef } from '@/components/HealthTrendChart';
+import type { HealthEnvironmentData, HealthMetric } from '@/types';
+
 
 const StatsPage: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const { fetchHealthData, loading: healthLoading, error } = useHealth();
+  const { loading: healthLoading, error } = useHealth();
   const [currentTab, setCurrentTab] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
-
-  const healthData = useAppSelector(state => state.health.data);
-  const healthScores = useAppSelector(state => state.health.scores);
-  const regionalComparison = useAppSelector(state => state.health.regionalComparison);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
+  const [_selectedMetrics, setSelectedMetrics] = useState<HealthMetric[]>(['cardioHealthScore', 'respiratoryHealthScore']);
+  const chartRef = useRef<HealthTrendChartRef>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login');
-    } else if (user && healthData.length === 0) {
-      fetchHealthData(1);
     }
-  }, [user, authLoading, router, fetchHealthData, healthData.length]);
+  }, [user, authLoading, router]);
 
   const handleTabChange = useCallback((event: React.SyntheticEvent, newValue: number) => {
     setCurrentTab(newValue);
   }, []);
 
-  const handlePageChange = useCallback((newPage: number) => {
-    setCurrentPage(newPage);
-    fetchHealthData(newPage);
-  }, [fetchHealthData]);
-
-  const handleHealthTrendDataUpdate = useCallback((data: HealthEnvironmentData[], selectedMetrics: string[]) => {
-    // Handle the updated data if needed
+  const handleHealthTrendDataUpdate = useCallback((data: HealthEnvironmentData[], metrics: HealthMetric[]) => {
+    setSelectedMetrics(metrics);
     console.log('Health trend data updated:', data.length, 'items');
-    console.log('Selected metrics:', selectedMetrics);
+    console.log('Selected metrics:', metrics);
+  }, []);
+
+  const handleRefresh = useCallback(async () => {
+    if (chartRef.current && chartRef.current.refreshData) {
+      chartRef.current.refreshData();
+    }
   }, []);
 
   const content = useMemo(() => {
@@ -53,14 +57,17 @@ const StatsPage: React.FC = () => {
     if (error) {
       return <Alert severity="error">{error}</Alert>;
     }
-    if (healthData.length === 0) {
-      return <Typography variant="body1">No health data available yet. Start tracking to see your stats!</Typography>;
-    }
     return (
-      <Grid container spacing={3}>
+      <Grid container spacing={2}>
         <Grid item xs={12}>
-          <Paper sx={{ p: 2 }}>
-            <Tabs value={currentTab} onChange={handleTabChange} aria-label="stats tabs">
+          <Paper sx={{ p: 1 }}>
+            <Tabs 
+              value={currentTab} 
+              onChange={handleTabChange} 
+              aria-label="stats tabs"
+              variant={isMobile ? "fullWidth" : "standard"}
+              centered={!isMobile}
+            >
               <Tab label="Health Trends" />
               <Tab label="Dashboard" />
             </Tabs>
@@ -68,28 +75,34 @@ const StatsPage: React.FC = () => {
         </Grid>
         <Grid item xs={12}>
           {currentTab === 0 ? (
-            <Paper sx={{ p: 2, height: 'calc(100vh - 300px)' }}>
-              <HealthTrendChart onDataUpdate={handleHealthTrendDataUpdate} />
-            </Paper>
-          ) : (
-            <Paper sx={{ p: 2 }}>
-              {user && healthScores && regionalComparison && (
-                <DashboardWithErrorBoundary
-                  user={user as UserState}
-                  healthData={healthData}
-                  healthScores={healthScores}
-                  regionalComparison={regionalComparison}
-                  onPageChange={handlePageChange}
-                  currentPage={currentPage}
-                  totalPages={Math.ceil(healthData.length / 20)} // Assuming 20 items per page
+            <Box sx={{ overflow: 'hidden' }}>
+              <Paper sx={{ 
+                p: { xs: 1, sm: 2 }, 
+                height: { xs: 'calc(100vh - 180px)', sm: 'calc(100vh - 200px)' }, 
+                display: 'flex', 
+                flexDirection: 'column' 
+              }}>
+                <HealthTrendChart 
+                  ref={chartRef}
+                  onDataUpdate={handleHealthTrendDataUpdate} 
                 />
-              )}
+              </Paper>
+            </Box>
+          ) : (
+            <Paper sx={{ p: { xs: 1, sm: 2 }, height: { xs: 'calc(100vh - 180px)', sm: 'calc(100vh - 200px)' } }}>
+              <DashboardWithErrorBoundary />
             </Paper>
           )}
         </Grid>
       </Grid>
     );
-  }, [healthLoading, error, healthData, currentTab, handleTabChange, user, healthScores, regionalComparison, handlePageChange, currentPage, handleHealthTrendDataUpdate]);
+  }, [healthLoading, error, currentTab, handleTabChange, handleHealthTrendDataUpdate, isMobile]);
+
+  const titleFontSize = useMemo(() => {
+    if (isMobile) return 'clamp(1.5rem, 5vw, 2rem)';
+    if (isTablet) return 'clamp(2rem, 4vw, 2.5rem)';
+    return 'clamp(2.5rem, 3vw, 3rem)';
+  }, [isMobile, isTablet]);
 
   if (authLoading) {
     return (
@@ -100,17 +113,36 @@ const StatsPage: React.FC = () => {
   }
 
   if (!user) {
-    return null; // The useEffect will handle redirecting to login
+    return null;
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" component="h1" gutterBottom>
-        Your Health Stats
-      </Typography>
+    <Box sx={{ 
+      p: { xs: 1, sm: 2, md: 3 },
+      minHeight: '100vh', 
+      height: '100%',
+      overflow: 'auto', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      bgcolor: 'black', 
+      '& .MuiPaper-root': { bgcolor: 'rgba(255,255,255,0.1)' },
+    }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h4" component="h1" gutterBottom sx={{ fontSize: titleFontSize }}>
+          Your Health Stats
+        </Typography>
+        <Button 
+          variant="contained" 
+          onClick={handleRefresh} 
+          startIcon={<Refresh />}
+          disabled={healthLoading}
+        >
+          {healthLoading ? 'Refreshing...' : 'Refresh Data'}
+        </Button>
+      </Box>
       {content}
     </Box>
   );
 };
 
-export default StatsPage;
+export default withAuth(StatsPage);

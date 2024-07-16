@@ -1,41 +1,48 @@
-import { CircularProgress, Typography, Select, MenuItem, FormControl, InputLabel, Box } from '@mui/material';
+import { Box, CircularProgress, FormControl, InputLabel, MenuItem, Select, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
+import { debounce } from 'lodash';
 import dynamic from 'next/dynamic';
-import React, { useState, Suspense } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
+
+import { useHealth } from '@/services/HealthContext';
 
 import GlobeErrorBoundary from './GlobeErrorBoundary';
 
-import type { HealthEnvironmentData } from '@/types';
-
-interface AnimatedGlobeProps {
-  healthData: HealthEnvironmentData[];
-  isLoading: boolean;
-  error: string | null;
-  selectedMetrics: string[];
-}
+import type { HealthEnvironmentData, HealthMetric } from '@/types';
+import type { SelectChangeEvent } from '@mui/material';
 
 const EnhancedGlobeVisualization = dynamic(() => import('./EnhancedGlobeVisualization'), {
   ssr: false,
-  loading: () => <div>Loading Globe...</div>
+  loading: () => <CircularProgress />
 });
 
-const AnimatedGlobe: React.FC<AnimatedGlobeProps> = ({ healthData, isLoading, error, selectedMetrics }) => {
-  const [displayMetric, setDisplayMetric] = useState<keyof HealthEnvironmentData>('environmentalImpactScore');
+const HOVER_DEBOUNCE_TIME = 200; // ms
 
-  if (isLoading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" height="60vh">
-        <CircularProgress />
-      </Box>
-    );
-  }
+interface AnimatedGlobeProps {
+  onLocationHover: (location: { name: string; country: string; state: string; continent: string } | null) => void;
+  onPointSelect: (point: HealthEnvironmentData | null) => void;
+}
+
+const AnimatedGlobe: React.FC<AnimatedGlobeProps> = ({ onLocationHover, onPointSelect }) => {
+  const { selectedMetrics, displayMetric, setDisplayMetric, loading, error } = useHealth();
+  const [selectedPoint,] = useState<HealthEnvironmentData | null>(null);
+
+  const handleMetricChange = useCallback((event: SelectChangeEvent<HealthMetric>) => {
+    setDisplayMetric(event.target.value as HealthMetric);
+  }, [setDisplayMetric]);
+
+   const handlePointSelection = useCallback((point: HealthEnvironmentData | null): void => {
+    onPointSelect(point);
+  }, [onPointSelect]);
+
+  const debouncedHandleLocationHover = useMemo(
+    () => debounce(onLocationHover, HOVER_DEBOUNCE_TIME),
+    [onLocationHover]
+  );
+
 
   if (error) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" height="60vh">
-        <Typography color="error">{error}</Typography>
-      </Box>
-    );
+    return <Typography color="error">Error loading globe data: {error}</Typography>;
   }
 
   return (
@@ -43,38 +50,42 @@ const AnimatedGlobe: React.FC<AnimatedGlobeProps> = ({ healthData, isLoading, er
       initial={{ opacity: 0, scale: 0.5 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.5 }}
-      className="animated-globe-container"
+      style={{ height: '100%', width: '100%' }}
     >
-      {healthData.length === 0 ? (
-        <Typography align="center">No health data available. Start tracking to see your globe!</Typography>
-      ) : (
-        <>
-          <FormControl fullWidth variant="outlined" margin="normal">
-            <InputLabel id="metric-select-label">Select Metric</InputLabel>
-            <Select
-              labelId="metric-select-label"
-              value={displayMetric}
-              onChange={(e) => setDisplayMetric(e.target.value as keyof HealthEnvironmentData)}
-              label="Select Metric"
-            >
-              {selectedMetrics.map((metric) => (
-                <MenuItem key={metric} value={metric}>
-                  {metric.charAt(0).toUpperCase() + metric.slice(1).replace(/([A-Z])/g, ' $1').trim()}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <Box sx={{ height: '60vh', width: '100%', position: 'relative' }}>
-            <GlobeErrorBoundary>
-              <Suspense fallback={<div>Loading Globe...</div>}>
-                <EnhancedGlobeVisualization healthData={healthData} displayMetric={displayMetric} />
-              </Suspense>
-            </GlobeErrorBoundary>
-          </Box>
-        </>
+      <FormControl fullWidth variant="outlined" sx={{ mb: 2 }}>
+        <InputLabel id="metric-select-label">Select Metric</InputLabel>
+        <Select
+          labelId="metric-select-label"
+          value={displayMetric}
+          onChange={handleMetricChange}
+          label="Select Metric"
+        >
+          {selectedMetrics.map((metric) => (
+            <MenuItem key={metric} value={metric}>
+              {metric.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase())}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+      <Box sx={{ height: 'calc(100% - 80px)', width: '100%', position: 'relative' }}>
+        <GlobeErrorBoundary>
+          {loading ? <CircularProgress /> : (
+            <EnhancedGlobeVisualization 
+              onPointSelect={handlePointSelection} 
+              onLocationHover={debouncedHandleLocationHover}
+            />
+          )}
+        </GlobeErrorBoundary>
+      </Box>
+      {selectedPoint && (
+        <Box sx={{ mt: 2, p: 2, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 2 }}>
+          <Typography variant="h6">Selected Point</Typography>
+          <Typography>Date: {new Date(selectedPoint.timestamp).toLocaleString()}</Typography>
+          <Typography>Score: {selectedPoint[displayMetric]}</Typography>
+        </Box>
       )}
     </motion.div>
   );
 };
 
-export default AnimatedGlobe;
+export default React.memo(AnimatedGlobe);

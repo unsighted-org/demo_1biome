@@ -12,6 +12,8 @@ export const routes: AppRoutes = {
   changePassword: '/change-password',
   deleteAccount: '/delete-account',
   globescreen: '/globescreen',
+  forms: '/forms',
+  DashboardWithErrorBoundary: '/DashboardWithErrorBoundary',
 };
 
 export const createHref = (route: keyof AppRoutes, params?: Record<string, string>): string => {

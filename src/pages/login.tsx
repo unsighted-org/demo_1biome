@@ -1,17 +1,274 @@
+// import { Email, Lock, Visibility, VisibilityOff } from '@mui/icons-material';
+// import { Box, TextField, Button, Typography, Alert, Paper, Container, InputAdornment, IconButton, CircularProgress } from '@mui/material';
+// import { motion } from 'framer-motion';
+// import NextLink from 'next/link';
+// import React, { useState } from 'react';
 
-import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { Canvas, useFrame, useThree, extend } from '@react-three/fiber';
-import { Preload, shaderMaterial } from '@react-three/drei';
-import * as THREE from 'three';
+// import { useAuth } from '@/context/AuthContext';
+
+// import type { UserLoginData } from '@/types';
+
+// const LoginPage: React.FC = () => {
+//   const [email, setEmail] = useState('');
+//   const [password, setPassword] = useState('');
+//   const [error, setError] = useState('');
+//   const [showPassword, setShowPassword] = useState(false);
+//   const [isLoading, setIsLoading] = useState(false);
+//   const { signIn } = useAuth(); // Use the signIn function from AuthContext
+
+//   const handleLogin = async (e: React.FormEvent): Promise<void> => {
+//     e.preventDefault();
+//     setError('');
+//     setIsLoading(true);
+
+//     const loginData: UserLoginData = { email, password };
+
+//     try {
+//       await signIn(loginData.email, loginData.password);
+//       // The router.push is handled in the AuthContext, so we don't need to do it here
+//     } catch (error) {
+//       console.error('Login error:', error);
+//       setError(error instanceof Error ? error.message : 'An unexpected error occurred');
+//     } finally {
+//       setIsLoading(false);
+//     }
+//   };
+
+//   return (
+//     <Container maxWidth="sm">
+//       <motion.div
+//         initial={{ opacity: 0, y: -50 }}
+//         animate={{ opacity: 1, y: 0 }}
+//         transition={{ duration: 0.5 }}
+//       >
+//         <Paper elevation={3} sx={{ mt: 8, p: 4, borderRadius: 2, backgroundColor: 'rgba(255, 255, 255, 0.8)' }}>
+//           <Box component="form" onSubmit={handleLogin} sx={{ mt: 1 }}>
+//             <Typography variant="h4" component="h1" gutterBottom align="center" sx={{ mb: 4, color: 'primary.main' }}>
+//               Welcome to 1Biome
+//             </Typography>
+//             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+//             <TextField
+//               margin="normal"
+//               required
+//               fullWidth
+//               id="email"
+//               label="Email Address"
+//               name="email"
+//               autoComplete="email"
+//               autoFocus
+//               value={email}
+//               onChange={(e) => setEmail(e.target.value)}
+//               InputProps={{
+//                 startAdornment: (
+//                   <InputAdornment position="start">
+//                     <Email color="primary" />
+//                   </InputAdornment>
+//                 ),
+//               }}
+//             />
+//             <TextField
+//               margin="normal"
+//               required
+//               fullWidth
+//               name="password"
+//               label="Password"
+//               type={showPassword ? 'text' : 'password'}
+//               id="password"
+//               autoComplete="current-password"
+//               value={password}
+//               onChange={(e) => setPassword(e.target.value)}
+//               InputProps={{
+//                 startAdornment: (
+//                   <InputAdornment position="start">
+//                     <Lock color="primary" />
+//                   </InputAdornment>
+//                 ),
+//                 endAdornment: (
+//                   <InputAdornment position="end">
+//                     <IconButton
+//                       aria-label="toggle password visibility"
+//                       onClick={() => setShowPassword(!showPassword)}
+//                       edge="end"
+//                     >
+//                       {showPassword ? <VisibilityOff /> : <Visibility />}
+//                     </IconButton>
+//                   </InputAdornment>
+//                 ),
+//               }}
+//             />
+//             <Button
+//               type="submit"
+//               fullWidth
+//               variant="contained"
+//               sx={{ mt: 3, mb: 2, py: 1.5, fontSize: '1.1rem' }}
+//               disabled={isLoading}
+//             >
+//               {isLoading ? <CircularProgress size={24} /> : 'Sign In'}
+//             </Button>
+//             <Box sx={{ textAlign: 'center', mt: 2 }}>
+//               <Typography variant="body2">
+//                 Don&apos;t have an account?{' '}
+//                 <NextLink href="/signup" passHref legacyBehavior>
+//                   <Typography component="a" sx={{ color: 'primary.main', textDecoration: 'underline', cursor: 'pointer' }}>
+//                     Sign up
+//                   </Typography>
+//                 </NextLink>
+//               </Typography>
+//             </Box>
+//           </Box>
+//         </Paper>
+//       </motion.div>
+//     </Container>
+//   );
+// };
+
+// export default LoginPage;
+
+
+
+//  BELOW IS THE DEVELOPMENT VIRSION OF THE CODE ABOVE
+
+// import { Email, Lock, Visibility, VisibilityOff } from '@mui/icons-material';
+// import { Box, TextField, Button, Typography, Alert, Paper, Container, InputAdornment, IconButton, CircularProgress } from '@mui/material';
+// import { motion } from 'framer-motion';
+// import NextLink from 'next/link';
+// import React, { useState } from 'react';
+
+// import { useAuth } from '@/context/AuthContext';
+
+// import type { UserLoginData } from '@/types';
+
+// const LoginPage: React.FC = () => {
+//   const [email, setEmail] = useState('');
+//   const [password, setPassword] = useState('');
+//   const [error, setError] = useState('');
+//   const [showPassword, setShowPassword] = useState(false);
+//   const [isLoading, setIsLoading] = useState(false);
+//   const { signIn } = useAuth(); // Use the signIn function from AuthContext
+
+//   const handleLogin = async (e: React.FormEvent): Promise<void> => {
+//     e.preventDefault();
+//     setError('');
+//     setIsLoading(true);
+
+//     const loginData: UserLoginData = { email, password };
+
+//     try {
+//       await signIn(loginData.email, loginData.password);
+//       // The router.push is handled in the AuthContext, so we don't need to do it here
+//     } catch (error) {
+//       console.error('Login error:', error);
+//       setError(error instanceof Error ? error.message : 'An unexpected error occurred');
+//     } finally {
+//       setIsLoading(false);
+//     }
+//   };
+
+//   return (
+//     <Container maxWidth="sm">
+//       <motion.div
+//         initial={{ opacity: 0, y: -50 }}
+//         animate={{ opacity: 1, y: 0 }}
+//         transition={{ duration: 0.5 }}
+//       >
+//         <Paper elevation={3} sx={{ mt: 8, p: 4, borderRadius: 2, backgroundColor: 'rgba(255, 255, 255, 0.8)' }}>
+//           <Box component="form" onSubmit={handleLogin} sx={{ mt: 1 }}>
+//             <Typography variant="h4" component="h1" gutterBottom align="center" sx={{ mb: 4, color: 'primary.main' }}>
+//               Welcome to 1Biome
+//             </Typography>
+//             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+//             <TextField
+//               margin="normal"
+//               required
+//               fullWidth
+//               id="email"
+//               label="Email Address"
+//               name="email"
+//               autoComplete="email"
+//               autoFocus
+//               value={email}
+//               onChange={(e) => setEmail(e.target.value)}
+//               InputProps={{
+//                 startAdornment: (
+//                   <InputAdornment position="start">
+//                     <Email color="primary" />
+//                   </InputAdornment>
+//                 ),
+//               }}
+//             />
+//             <TextField
+//               margin="normal"
+//               required
+//               fullWidth
+//               name="password"
+//               label="Password"
+//               type={showPassword ? 'text' : 'password'}
+//               id="password"
+//               autoComplete="current-password"
+//               value={password}
+//               onChange={(e) => setPassword(e.target.value)}
+//               InputProps={{
+//                 startAdornment: (
+//                   <InputAdornment position="start">
+//                     <Lock color="primary" />
+//                   </InputAdornment>
+//                 ),
+//                 endAdornment: (
+//                   <InputAdornment position="end">
+//                     <IconButton
+//                       aria-label="toggle password visibility"
+//                       onClick={() => setShowPassword(!showPassword)}
+//                       edge="end"
+//                     >
+//                       {showPassword ? <VisibilityOff /> : <Visibility />}
+//                     </IconButton>
+//                   </InputAdornment>
+//                 ),
+//               }}
+//             />
+//             <Button
+//               type="submit"
+//               fullWidth
+//               variant="contained"
+//               sx={{ mt: 3, mb: 2, py: 1.5, fontSize: '1.1rem' }}
+//               disabled={isLoading}
+//             >
+//               {isLoading ? <CircularProgress size={24} /> : 'Sign In'}
+//             </Button>
+//             <Box sx={{ textAlign: 'center', mt: 2 }}>
+//               <Typography variant="body2">
+//                 Don&apos;t have an account?{' '}
+//                 <NextLink href="/splashPage" passHref legacyBehavior>
+//                   <Typography component="a" sx={{ color: 'primary.main', textDecoration: 'underline', cursor: 'pointer' }}>
+//                     Join Waitlist
+//                   </Typography>
+//                 </NextLink>
+//               </Typography>
+//             </Box>
+//           </Box>
+//         </Paper>
+//       </motion.div>
+//     </Container>
+//   );
+// };
+
+// export default LoginPage;
+
+
+import { Email, Lock, Visibility, VisibilityOff } from '@mui/icons-material';
 import { Box, TextField, Button, Typography, Alert, InputAdornment, CircularProgress, IconButton } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { Email, Lock, Visibility, VisibilityOff } from '@mui/icons-material';
+import { Preload, shaderMaterial } from '@react-three/drei';
+import { Canvas, useFrame, useThree, extend } from '@react-three/fiber';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
+import React, { useState, useCallback, useMemo, useEffect, useRef, use } from 'react';
+import * as THREE from 'three';
 
 import { useAuth } from '@/context/AuthContext';
+
 import type { UserLoginData } from '@/types';
-import { useRouter } from 'next/router';
 
 // Custom star shader
 interface ShootingStarProps {
@@ -318,31 +575,47 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const { signIn, user, loading: authLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (user && !authLoading) {
-      router.push('/globescreen');
+    if (user) {
+      router.replace('/globescreen');
     }
-  }, [user, authLoading, router]);
+  }, [user, router]);
+
+  useEffect(() => {
+    const canvas = document.querySelector('canvas');
+    if (canvas) {
+      canvas.style.position = 'fixed';
+      canvas.style.top = '0';
+      canvas.style.left = '0';
+      canvas.style.zIndex = '-1';
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    const handleResize = () => {
+      if (canvas) {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleLogin = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setIsLoading(true);
-
-    const loginData: UserLoginData = { email, password };
 
     try {
-      await signIn(loginData.email, loginData.password);
-      // No need to manually redirect here, the useEffect will handle it
+      await signIn(email, password);
+      // Redirection will be handled by the AuthContext
     } catch (error) {
       console.error('Login error:', error);
       setError(error instanceof Error ? error.message : 'An unexpected error occurred');
-    } finally {
-      setIsLoading(false);
     }
   }, [email, password, signIn]);
 
@@ -352,10 +625,6 @@ const LoginPage: React.FC = () => {
         <CircularProgress />
       </Box>
     );
-  }
-
-  if (user) {
-    return null; // or a loading indicator
   }
 
   return (
@@ -392,14 +661,15 @@ const LoginPage: React.FC = () => {
               gap: 2,
               padding: 4,
               borderRadius: 2,
+              backgroundColor: 'rgba(0, 0, 0, 0.7)',
             }}
           >
             <Typography variant="h3" component="h1" align="center" sx={{ mb: 4, color: '#FFFFFF' }}>
               1Biome
             </Typography>
-            
+
             {error && <Alert severity="error" sx={{ mb: 2, backgroundColor: 'rgba(211, 47, 47, 0.1)', color: '#ff5252' }}>{error}</Alert>}
-            
+
             <StyledTextField
               required
               fullWidth
@@ -417,7 +687,7 @@ const LoginPage: React.FC = () => {
                 ),
               }}
             />
-            
+
             <StyledTextField
               required
               fullWidth
@@ -453,9 +723,9 @@ const LoginPage: React.FC = () => {
               type="submit"
               fullWidth
               variant="contained"
-              disabled={isLoading}
+              disabled={authLoading}
             >
-              {isLoading ? <CircularProgress size={24} sx={{ color: '#000000' }} /> : 'Sign In'}
+              {authLoading ? <CircularProgress size={24} sx={{ color: '#000000' }} /> : 'Sign In'}
             </StyledButton>
             
             <Typography align="center" sx={{ mt: 2, color: 'rgb(0, 255, 255)', fontSize: '0.9rem' }}>

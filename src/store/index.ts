@@ -1,5 +1,8 @@
-import { configureStore, ThunkAction, Action } from '@reduxjs/toolkit';
-import { useDispatch, useSelector, TypedUseSelectorHook } from 'react-redux';
+import { configureStore } from '@reduxjs/toolkit';
+import { useDispatch, useSelector } from 'react-redux';
+
+import { NotificationService } from '@/services/NotificationService';
+
 import healthReducer, {
   updateHealthData,
   addHealthData,
@@ -21,7 +24,9 @@ import userReducer, {
   markNotificationAsRead,
   clearNotifications,
 } from './userSlice';
-import { NotificationService } from '@/services/NotificationService';
+
+import type { ThunkAction, Action } from '@reduxjs/toolkit';
+import type { TypedUseSelectorHook } from 'react-redux';
 
 export const store = configureStore({
   reducer: {

@@ -1,36 +1,43 @@
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
-import { useAuth } from '@/context/AuthContext';
-import { useHealth } from '@/services/HealthContext';
-import { useAppSelector } from '@/store';
+import { TrendingUp } from '@mui/icons-material';
 import {
-  Box, Typography, CircularProgress, Paper, Grid, Divider, Tabs, Tab, 
-  List, ListItem, ListItemIcon, ListItemText, Avatar
+  Box, Typography, CircularProgress, Paper, Grid, Divider, Tabs, Tab
 } from '@mui/material';
-import { TrendingUp, FavoriteOutlined, DirectionsRunOutlined, Co2Outlined, AccessTime } from '@mui/icons-material';
-import type { HealthEnvironmentData, UserState } from '@/types';
+import { useRouter } from 'next/router';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
+
 import CustomButton from '@/components/CustomButton';
+import { useAuth } from '@/context/AuthContext';
+import { withAuth } from '@/context/withAuth';
+import { useHealth } from '@/services/HealthContext';
+
+
+
+// Lazy loaded components
+const ProfileSection = lazy(() => import('@/components/lazyloading/ProfileSection'));
+const BasicInfoSection = lazy(() => import('@/components/lazyloading/BasicInfoSection'));
+const HealthSummarySection = lazy(() => import('@/components/lazyloading/HealthSummarySection'));
+const ActivityLogSection = lazy(() => import('@/components/lazyloading/ActivityLogSection'));
 
 const ProfilePage: React.FC = () => {
   const router = useRouter();
   const { user, loading: authLoading, signOut } = useAuth();
-  const { loading: healthLoading, error } = useHealth();
+  const {visibleData, loading: healthLoading, error, fetchHealthData } = useHealth();
   const [tabValue, setTabValue] = useState(0);
-  
-  const healthData = useAppSelector(state => state.health.data);
-  const healthScores = useAppSelector(state => state.health.scores);
+  const [isDataFetched, setIsDataFetched] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login');
+    } else if (user && !isDataFetched) {
+      fetchHealthData(1).then(() => setIsDataFetched(true));
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, fetchHealthData, isDataFetched]);
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number): void => {
     setTabValue(newValue);
   };
 
-  const handleSignOut = async () => {
+  const handleSignOut = async (): Promise<void> => {
     try {
       await signOut();
       router.push('/login');
@@ -39,7 +46,7 @@ const ProfilePage: React.FC = () => {
     }
   };
 
-  if (authLoading || healthLoading) {
+  if (authLoading || (healthLoading && !isDataFetched)) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
         <CircularProgress />
@@ -56,73 +63,16 @@ const ProfilePage: React.FC = () => {
     );
   }
 
-  const ProfileSection: React.FC = () => (
-    <Box display="flex" flexDirection="column" alignItems="center">
-      <Avatar src={user?.avatarUrl || ''} sx={{ width: 100, height: 100, mb: 2 }} />
-      <Typography variant="h5">{user?.name}</Typography>
-      <Typography variant="body2" color="textSecondary">{user?.email}</Typography>
-    </Box>
-  );
-
-  const BasicInfoSection: React.FC = () => (
-    <List>
-      <ListItem>
-        <ListItemText primary="Height" secondary={`${user?.height} cm`} />
-      </ListItem>
-      <ListItem>
-        <ListItemText primary="Weight" secondary={`${user?.weight} kg`} />
-      </ListItem>
-      <ListItem>
-        <ListItemText primary="Date of Birth" secondary={user?.dateOfBirth} />
-      </ListItem>
-    </List>
-  );
-
-  const HealthSummarySection: React.FC = () => {
-    const latestHealthData = healthData[healthData.length - 1] || {} as HealthEnvironmentData;
-    return (
-      <List>
-        <ListItem>
-          <ListItemIcon><AccessTime /></ListItemIcon>
-          <ListItemText primary="Last Sync" secondary={new Date(latestHealthData.timestamp).toLocaleString()} />
-        </ListItem>
-        <ListItem>
-          <ListItemIcon><FavoriteOutlined /></ListItemIcon>
-          <ListItemText primary="Average Heart Rate" secondary={`${healthScores?.cardioHealthScore.toFixed(2) || 'N/A'} bpm`} />
-        </ListItem>
-        <ListItem>
-          <ListItemIcon><DirectionsRunOutlined /></ListItemIcon>
-          <ListItemText primary="Average Daily Steps" secondary={healthScores?.physicalActivityScore.toFixed(0) || 'N/A'} />
-        </ListItem>
-        <ListItem>
-          <ListItemIcon><Co2Outlined /></ListItemIcon>
-          <ListItemText primary="Environmental Impact Score" secondary={healthScores?.environmentalImpactScore.toFixed(2) || 'N/A'} />
-        </ListItem>
-      </List>
-    );
-  };
-
-  const ActivityLogSection: React.FC = () => (
-    <List>
-      {healthData.slice(-5).reverse().map((data, index) => (
-        <ListItem key={index}>
-          <ListItemText 
-            primary={new Date(data.timestamp).toLocaleDateString()} 
-            secondary={`Steps: ${data.steps}, Heart Rate: ${data.heartRate} bpm`} 
-          />
-        </ListItem>
-      ))}
-    </List>
-  );
-
   return (
     <Box sx={{ maxWidth: 1200, mx: 'auto', p: 2 }}>
       <Grid container spacing={3}>
         <Grid item xs={12} md={4}>
           <Paper elevation={3} sx={{ p: 3, height: '100%' }}>
-            <ProfileSection />
-            <Divider sx={{ my: 2 }} />
-            <BasicInfoSection />
+            <Suspense fallback={<CircularProgress />}>
+              <ProfileSection user={user} />
+              <Divider sx={{ my: 2 }} />
+              <BasicInfoSection user={user} />
+            </Suspense>
           </Paper>
         </Grid>
         <Grid item xs={12} md={8}>
@@ -131,8 +81,10 @@ const ProfilePage: React.FC = () => {
               <Tab label="Health Summary" />
               <Tab label="Recent Activity" />
             </Tabs>
-            {tabValue === 0 && <HealthSummarySection />}
-            {tabValue === 1 && <ActivityLogSection />}
+            <Suspense fallback={<CircularProgress />}>
+              {tabValue === 0 && <HealthSummarySection healthData={visibleData} healthScores={null} />}
+              {tabValue === 1 && <ActivityLogSection healthData={visibleData} />}
+            </Suspense>
           </Paper>
         </Grid>
       </Grid>
@@ -154,4 +106,5 @@ const ProfilePage: React.FC = () => {
   );
 };
 
-export default ProfilePage;
+
+export default withAuth(ProfilePage);

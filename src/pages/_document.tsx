@@ -10,6 +10,20 @@ class MyDocument extends Document {
             rel="stylesheet"
             href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap"
           />
+          <style>{`body { margin: 0; }`}</style>
+          <script type="importmap" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+            imports: {
+              "three": "//unpkg.com/three/build/three.module.js",
+              "three/addons/": "//unpkg.com/three/examples/jsm/"
+            }
+          }) }} />
+          <script type="module" dangerouslySetInnerHTML={{
+            __html: `
+              import * as THREE from 'three';
+              window.THREE = THREE;
+            `,
+          }} />
+          <script src="https://unpkg.com/three-globe" defer></script>
         </Head>
         <body>
           <Main />

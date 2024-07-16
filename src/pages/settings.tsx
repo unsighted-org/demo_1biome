@@ -1,15 +1,3 @@
-import { Notifications, Lock, ExitToApp, VpnKey, DeleteForever, Favorite, DirectionsRun, Nature } from '@mui/icons-material';
-import { Box, List, ListSubheader, ListItem, ListItemIcon, ListItemText, Switch, Divider, Paper, Typography } from '@mui/material';
-import { useRouter } from 'next/router';
-import React from 'react';
-
-import CustomButton from '@/components/CustomButton';
-import { useAuth } from '@/context/AuthContext';
-import { useAppSelector } from '@/store';
-
-import type { UserSettings, UserState } from '@/types';
-
-
 
 // Make environment impact alerts toggleable when toggling environmental impact notifications in the settings page by adding a new function handleNotificationPreferenceToggle that toggles the environmentalImpact notification preference in the user settings. The function should be called when the environmental impact alerts switch is toggled in the settings page. The function should update the user settings in the database and should be an async function that takes a single argument, the notification preference key to toggle. The function should be defined in the SettingsPage component and should be called with the 'environmentalImpact' key when the environmental impact alerts switch is toggled.
 // What the function should do when called with the 'environmentalImpact' key when envrironmental impact alerts switch is toggled in the settings page:
@@ -28,6 +16,22 @@ import type { UserSettings, UserState } from '@/types';
 // 13. Allow within the notification preferences to set the radius of the environmental impact alerts to be triggered.
 // 14. So Geo location will be used for allow radius with a figure touch of the map of there current aread for interactivity.
 
+import { 
+  Notifications, Lock, ExitToApp, VpnKey, DeleteForever, Favorite, DirectionsRun, Nature 
+} from '@mui/icons-material';
+import { 
+  Box, List, ListSubheader, ListItem, ListItemIcon, ListItemText, Switch, Divider, 
+  Paper, Typography, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle 
+} from '@mui/material';
+import { useRouter } from 'next/router';
+import React, { useState } from 'react';
+
+import CustomButton from '@/components/CustomButton';
+import { useAuth } from '@/context/AuthContext';
+import { withAuth } from '@/context/withAuth';
+import { useAppSelector } from '@/store';
+
+import type { UserSettings, UserState } from '@/types';
 
 
 type NotificationPreferenceKey = keyof UserSettings['notificationPreferences'];
@@ -37,6 +41,7 @@ const SettingsPage: React.FC = () => {
   const router = useRouter();
   const { user, signOut, updateUserSettings } = useAuth();
   const settings = useAppSelector((state: { user: UserState }) => state.user.settings);
+  const [openLogoutDialog, setOpenLogoutDialog] = useState(false);
 
   const handleToggle = async (key: keyof ToggleableSettings): Promise<void> => {
     if (user && settings) {
@@ -68,13 +73,27 @@ const SettingsPage: React.FC = () => {
   const handleLogout = async (): Promise<void> => {
     try {
       await signOut();
-      router.push('/login');
+      // The signOut function in AuthContext should handle the redirection
     } catch (error) {
       console.error('Logout error:', error);
+      // You might want to show an error message to the user here
     }
   };
 
-  const renderSettingsContent = () => (
+  const handleLogoutClick = (): void => {
+    setOpenLogoutDialog(true);
+  };
+
+  const handleLogoutConfirm = (): void => {
+    setOpenLogoutDialog(false);
+    handleLogout();
+  };
+
+  const handleLogoutCancel = (): void => {
+    setOpenLogoutDialog(false);
+  };
+
+  const renderSettingsContent = (): JSX.Element => (
     <>
       <List subheader={<ListSubheader>Notifications</ListSubheader>}>
         <ListItem>
@@ -170,7 +189,7 @@ const SettingsPage: React.FC = () => {
           <Box sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>Welcome to Settings</Typography>
             <Typography variant="body1">
-              Once you're logged in, you'll be able to customize your notification preferences,
+              Once you&apos;re logged in, you&apos;ll be able to customize your notification preferences,
               privacy settings, and manage your account from here. Start tracking your health
               data to unlock all features!
             </Typography>
@@ -180,13 +199,33 @@ const SettingsPage: React.FC = () => {
       <Box sx={{ mt: 3 }}>
         <CustomButton
           title={user ? "Logout" : "Login"}
-          onClick={user ? handleLogout : () => router.push('/login')}
+          onClick={user ? handleLogoutClick : () => router.push('/login')}
           startIcon={<ExitToApp />}
           fullWidth
         />
       </Box>
+      <Dialog
+        open={openLogoutDialog}
+        onClose={handleLogoutCancel}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+      >
+        <DialogTitle id="alert-dialog-title">{"Confirm Logout"}</DialogTitle>
+        <DialogContent>
+          <DialogContentText id="alert-dialog-description">
+            Are you sure you want to log out? This will end your session on all devices.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleLogoutCancel}>Cancel</Button>
+          <Button onClick={handleLogoutConfirm} autoFocus>
+            Logout
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
 
-export default SettingsPage;
+
+export default withAuth(SettingsPage);

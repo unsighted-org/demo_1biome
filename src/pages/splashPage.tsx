@@ -1,11 +1,11 @@
-import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { Canvas, useFrame, useThree, extend } from '@react-three/fiber';
-import { Preload, shaderMaterial } from '@react-three/drei';
-import * as THREE from 'three';
-import { Box, TextField, Button, Typography, Alert, InputAdornment, CircularProgress } from '@mui/material';
 import { Email, ArrowForward } from '@mui/icons-material';
+import { Box, TextField, Button, Typography, Alert, InputAdornment, CircularProgress } from '@mui/material';
+import { Preload, shaderMaterial } from '@react-three/drei';
+import { Canvas, useFrame, useThree, extend } from '@react-three/fiber';
 import { AnimatePresence, motion } from 'framer-motion';
 import NextLink from 'next/link';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import * as THREE from 'three';
 
 interface ShootingStarProps {
     position: THREE.Vector3;
@@ -266,7 +266,7 @@ const SplashPage: React.FC = () => {
                                     exit={{ opacity: 0, scale: 0.8 }}
                                 >
                                     <Alert severity="success" sx={{ mb: 2, width: '100%' }}>
-                                        Welcome to 1Biome's Global Health Navigation! We'll keep you updated on health-boosting regions.
+                                        Welcome to 1Biome&apos;s Global Health Navigation! We&apos;ll keep you updated on health-boosting regions.
                                     </Alert>
                                 </motion.div>
                             ) : (

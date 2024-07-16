@@ -250,35 +250,165 @@
 
 // src/contexts/HealthContext.tsx
 // src/contexts/HealthContext.tsx
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+
+
+
+
+
+
+
+//  this is the version of the file to fetch data rather than the mock data approach: 
+// import React, { createContext, useContext, useCallback, useState, useEffect, useMemo } from 'react';
+// import { useDispatch, useSelector } from 'react-redux';
+
+// import { useAuth } from '@/context/AuthContext';
+// import { createClusterManager } from '@/lib/clustering';
+// import { healthApi } from '@/lib/healthApi';
+// import { updateHealthData, addHealthData } from '@/store';
+
+// import type { RootState} from '@/store';
+// import type { HealthEnvironmentData, HealthState } from '@/types';
+
+
+// interface HealthContextType {
+//   healthData: HealthEnvironmentData[];
+//   visibleData: HealthEnvironmentData[];
+//   loading: boolean;
+//   error: string | null;
+//   fetchHealthData: (page: number) => Promise<void>;
+//   currentPage: number;
+//   totalPages: number;
+//   setZoom: (zoom: number) => void;
+// }
+
+// const HealthContext = createContext<HealthContextType | undefined>(undefined);
+
+// export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+//   const dispatch = useDispatch();
+//   const { user } = useAuth();
+//   const healthState = useSelector<RootState, HealthState>((state) => state.health);
+//   const { data: healthData } = healthState;
+
+//   const [loading, setLoading] = useState(false);
+//   const [currentPage, setCurrentPage] = useState(1);
+//   const [totalPages, setTotalPages] = useState(1);
+//   const [zoom, setZoom] = useState(1);
+
+//   const clusterManager = useMemo(() => createClusterManager(), []);
+
+//   const fetchHealthData = useCallback(async (page: number) => {
+//     if (!user || loading) return;
+
+//     setLoading(true);
+//     try {
+//       const response = await healthApi.getHealthData(user.id, page);
+//       if (page === 1) {
+//         dispatch(updateHealthData(response.data));
+//       } else {
+//         dispatch(addHealthData(response.data));
+//       }
+//       setCurrentPage(response.currentPage);
+//       setTotalPages(response.totalPages);
+//       clusterManager.addData(response.data);
+//     } catch (err) {
+//       dispatch({ type: 'health/setError', payload: 'Failed to fetch health data' });
+//     } finally {
+//       setLoading(false);
+//     }
+//   }, [user, dispatch, loading, clusterManager]);
+
+//   useEffect(() => {
+//     if (user && healthData.length === 0) {
+//       fetchHealthData(1);
+//     } else if (healthData.length > 0) {
+//       clusterManager.addData(healthData);
+//     }
+//   }, [user, healthData, fetchHealthData, clusterManager]);
+
+//   const visibleData = useMemo(() => {
+//     return clusterManager.getClusters(zoom);
+//   }, [clusterManager, zoom]);
+
+//   const value: HealthContextType = {
+//     healthData,
+//     visibleData,
+//     loading,
+//     error: healthState.error,
+//     fetchHealthData,
+//     currentPage,
+//     totalPages,
+//     setZoom,
+//   };
+
+//   return <HealthContext.Provider value={value}>{children}</HealthContext.Provider>;
+// };
+
+// export const useHealth = (): HealthContextType => {
+//   const context = useContext(HealthContext);
+//   if (context === undefined) {
+//     throw new Error('useHealth must be used within a HealthProvider');
+//   }
+//   return context;
+// };
+
+
+
+// This is the mock data approach
+// src/context/HealthContext.tsx
+
+import React, { createContext, useContext, useCallback, useState, useEffect, useMemo } from 'react';
+
 import { useAuth } from '@/context/AuthContext';
-import { mockHealthData } from './mockData/healthData';
-import type { HealthEnvironmentData } from '@/types';
+import { createClusterManager } from '@/lib/clustering';
+
+import { mockHealthData } from './mockData/healthDataGenerator';
+
+import type { HealthEnvironmentData, HealthState, HealthMetric } from '@/types';
 
 interface HealthContextType {
   healthData: HealthEnvironmentData[];
+  visibleData: HealthEnvironmentData[];
   loading: boolean;
   error: string | null;
   fetchHealthData: (page: number) => Promise<void>;
   currentPage: number;
   totalPages: number;
+  setZoom: (zoom: number) => void;
+  selectedMetrics: HealthMetric[];
+  displayMetric: HealthMetric;
+  onZoomChange: (zoom: number) => void;
+  onPointSelect: (data: HealthEnvironmentData | null) => void;
+  onLocationHover: (locationInfo: { name: string; country: string; state: string; continent: string } | null) => void;
+  isInteracting: boolean;
+  setDisplayMetric: (metric: HealthMetric) => void;
 }
 
 const HealthContext = createContext<HealthContextType | undefined>(undefined);
 
-const PAGE_SIZE = 20; // Define the number of items per page
+const PAGE_SIZE = 20;
 
 export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [healthData, setHealthData] = useState<HealthEnvironmentData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(Math.ceil(mockHealthData.length / PAGE_SIZE));
-
   const { user } = useAuth();
+  const [healthState, setHealthState] = useState<HealthState>({
+    data: [],
+    error: null,
+    lastSyncTime: null,
+    scores: null,
+    regionalComparison: null,
+    loading: false,
+  });
+  const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages] = useState(Math.ceil(mockHealthData.length / PAGE_SIZE));
+  const [zoom, setZoom] = useState(1);
+  const [selectedMetrics,] = useState<HealthMetric[]>(['cardioHealthScore', 'respiratoryHealthScore', 'environmentalImpactScore']);
+  const [displayMetric, setDisplayMetric] = useState<HealthMetric>('environmentalImpactScore');
+  const [isInteracting,] = useState(false);
+
+  const clusterManager = useMemo(() => createClusterManager(), []);
 
   const fetchHealthData = useCallback(async (page: number) => {
-    if (!user) return;
+    if (!user || loading) return;
 
     setLoading(true);
     try {
@@ -289,29 +419,69 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const endIndex = startIndex + PAGE_SIZE;
       const paginatedData = mockHealthData.slice(startIndex, endIndex);
 
-      setHealthData(prevData => [...prevData, ...paginatedData]);
+      setHealthState(prevState => {
+        const newData = page === 1 ? paginatedData : [...prevState.data, ...paginatedData];
+        clusterManager.addData(newData);
+        return {
+          ...prevState,
+          data: newData,
+          error: null,
+          lastSyncTime: new Date().toISOString(),
+        };
+      });
       setCurrentPage(page);
-      setError(null);
     } catch (err) {
-      setError('Failed to fetch health data');
+      setHealthState(prevState => ({
+        ...prevState,
+        error: 'Failed to fetch health data',
+      }));
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, loading, clusterManager]);
 
   useEffect(() => {
-    if (user) {
+    if (user && healthState.data.length === 0) {
       fetchHealthData(1);
+    } else if (healthState.data.length > 0) {
+      clusterManager.addData(healthState.data);
     }
-  }, [user, fetchHealthData]);
+  }, [user, healthState.data, fetchHealthData, clusterManager]);
 
-  const value = {
-    healthData,
+  const visibleData = useMemo(() => {
+    return clusterManager.getClusters(zoom);
+  }, [clusterManager, zoom]);
+
+  const onZoomChange = useCallback((newZoom: number) => {
+    setZoom(newZoom);
+  }, []);
+
+  const onPointSelect = useCallback((data: HealthEnvironmentData | null) => {
+    // Implement point selection logic (e.g., update UI, trigger analytics)
+    console.log('Selected point:', data);
+  }, []);
+
+  const onLocationHover = useCallback((locationInfo: { name: string; country: string; state: string; continent: string } | null) => {
+    // Implement location hover logic (e.g., update UI, show tooltip)
+    console.log('Hovered location:', locationInfo);
+  }, []);
+
+  const value: HealthContextType = {
+    healthData: healthState.data,
+    visibleData,
     loading,
-    error,
+    error: healthState.error,
     fetchHealthData,
     currentPage,
     totalPages,
+    setZoom,
+    selectedMetrics,
+    displayMetric,
+    onZoomChange,
+    onPointSelect,
+    onLocationHover,
+    isInteracting,
+    setDisplayMetric,
   };
 
   return <HealthContext.Provider value={value}>{children}</HealthContext.Provider>;

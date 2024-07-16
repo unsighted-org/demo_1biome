@@ -142,14 +142,17 @@
 
 //  BELOW IS THE DEVELOPMENT VIRSION OF THE CODE ABOVE
 
-import React, { useMemo, useState, useEffect } from 'react';
-import { AppBar, Box, Container, Toolbar, Typography, useTheme, useMediaQuery, Drawer, IconButton, List, ListItem, ListItemText, ListItemIcon } from '@mui/material';
 import { Menu as MenuIcon, Close as CloseIcon, Dashboard, Person, Settings, Public } from '@mui/icons-material';
-import { useRouter } from 'next/router';
+import { AppBar, Box, Container, Toolbar, Typography, useTheme, useMediaQuery, Drawer, IconButton, List, ListItem, ListItemText, ListItemIcon } from '@mui/material';
 import Link from 'next/link';
-import Navigation from './Navigation';
+import { useRouter } from 'next/router';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
+
 import { useAuth } from '@/context/AuthContext';
 import { useRoutes } from '@/hooks/useRoutes';
+
+import Navigation from './Navigation';
+
 import type { NavItem, AppRoutes } from '@/types';
 
 interface LayoutProps {
@@ -168,9 +171,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const isSplashPage = router.pathname === '/splashPage';
   const isHomePage = router.pathname === '/';
 
-  const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
-  };
+  const handleDrawerToggle = useCallback(() => {
+    setMobileOpen((prevMobileOpen) => !prevMobileOpen);
+  }, [setMobileOpen]);
 
   const drawer = useMemo(() => {
     const navItems: NavItem[] = [

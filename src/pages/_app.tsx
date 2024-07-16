@@ -3,15 +3,19 @@ import { ThemeProvider } from '@mui/material/styles';
 import { SessionProvider } from 'next-auth/react';
 import { useEffect } from 'react';
 import { Provider as ReduxProvider } from 'react-redux';
+
+import { HealthProvider } from '@/services/HealthContext';
+
 import ErrorBoundary from '../components/ErrorBoundary';
+import FallbackComponent from '../components/FallbackComponent';
 import Layout from '../components/Layout';
 import { AuthProvider, useAuth } from '../context/AuthContext';
-import { HealthProvider } from '@/services/HealthContext';
 import { store, notificationService } from '../store';
 import theme from '../styles/theme';
+
 import type { AppProps } from 'next/app';
+
 import '../styles/globals.css';
-import FallbackComponent from '../components/FallbackComponent';
 
 function ServiceWorkerRegistration(): JSX.Element {
   useEffect(() => {
@@ -42,7 +46,7 @@ function NotificationInitializer(): JSX.Element {
         .then(() => {
           console.log('Notification service initialized successfully');
         })
-        .catch((error: any) => {
+        .catch((error: Error) => {
           console.error('Failed to initialize notification service:', error);
         });
     }

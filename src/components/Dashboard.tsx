@@ -1,158 +1,162 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import { Add, Map, Timeline, BarChart, PieChart } from '@mui/icons-material';
 import {
-  Box, Tabs, Tab, Typography, Paper, Grid, CircularProgress,
-  Tooltip, IconButton, Menu, MenuItem, Snackbar, Button, Alert, Pagination
+  Box, Grid, Paper, Typography, CircularProgress, Alert, Tabs, Tab,
+  Select, MenuItem, FormControl, InputLabel, Chip, IconButton
 } from '@mui/material';
-import { DirectionsRun, Favorite, Speed, CloudQueue, WbSunny, VolumeUp, MoreVert } from '@mui/icons-material';
-import type { DashboardProps } from '@/types';
+import React, { useState, useCallback, useEffect } from 'react';
 
-const Dashboard: React.FC<DashboardProps> = ({
-  user,
-  healthData,
-  healthScores,
-  regionalComparison,
-  onPageChange,
-  currentPage,
-  totalPages
-}) => {
-  const [currentView, setCurrentView] = useState(0);
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+import { useAuth } from '@/context/AuthContext';
+import { useHealth } from '@/services/HealthContext';
 
-  const handleViewChange = useCallback((event: React.SyntheticEvent, newValue: number): void => {
+import CustomChart from './CustomChart'; 
+import GeospatialChart from './GeospatialChart';
+
+import type { HealthEnvironmentData, HealthMetric} from '@/types';
+import type { SelectChangeEvent } from '@mui/material';
+
+type ChartType = 'line' | 'bar' | 'pie';
+
+const Dashboard: React.FC = () => {
+  const [currentView, setCurrentView] = useState<number>(0);
+  const [selectedMetrics, setSelectedMetrics] = useState<HealthMetric[]>(['cardioHealthScore', 'respiratoryHealthScore']);
+  const [chartType, setChartType] = useState<ChartType>('line');
+  const [geospatialMetric, setGeospatialMetric] = useState<HealthMetric>('environmentalImpactScore');
+
+  useAuth();
+  const { healthData, loading, error, fetchHealthData } = useHealth();
+
+  useEffect(() => {
+    if (healthData.length === 0 && !loading) {
+      fetchHealthData(1);
+    }
+  }, [healthData, loading, fetchHealthData]);
+
+  const handleViewChange = useCallback((_event: React.SyntheticEvent, newValue: number) => {
     setCurrentView(newValue);
   }, []);
 
-  const handleMenuClick = useCallback((event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
+  const handleMetricToggle = useCallback((metric: HealthMetric) => {
+    setSelectedMetrics(prev =>
+      prev.includes(metric) ? prev.filter(m => m !== metric) : [...prev, metric]
+    );
   }, []);
 
-  const handleMenuClose = useCallback(() => {
-    setAnchorEl(null);
+  const handleChartTypeChange = useCallback((event: SelectChangeEvent<ChartType>) => {
+    setChartType(event.target.value as ChartType);
   }, []);
 
-  const handlePageChange = useCallback((event: React.ChangeEvent<unknown>, value: number) => {
-    onPageChange(value);
-  }, [onPageChange]);
+  const handleGeospatialMetricChange = useCallback((event: SelectChangeEvent<HealthMetric>) => {
+    setGeospatialMetric(event.target.value as HealthMetric);
+  }, []);
 
-  const HealthDataView = useMemo(() => () => {
-    const latestData = healthData[healthData.length - 1] || {};
-    return (
-      <Grid container spacing={2}>
-        <Grid item xs={12} sm={6} md={4}>
-          <Tooltip title="Number of steps taken today">
-            <Paper elevation={3} sx={{ p: 2, display: 'flex', alignItems: 'center' }}>
-              <DirectionsRun sx={{ fontSize: 40, mr: 2 }} />
-              <Box>
-                <Typography variant="h6">Steps</Typography>
-                <Typography variant="h4">{latestData.steps?.toLocaleString() || 'N/A'}</Typography>
-              </Box>
-            </Paper>
-          </Tooltip>
-        </Grid>
-        {/* Add more health data items here */}
+  const DataComparisonView: React.FC = () => (
+    <Grid container spacing={2}>
+      <Grid item xs={12} md={8}>
+        <Paper elevation={3} sx={{ p: 2, height: '400px' }}>
+          <CustomChart
+            data={healthData}
+            metrics={selectedMetrics}
+            chartType={chartType}
+          />
+        </Paper>
       </Grid>
-    );
-  }, [healthData]);
+      <Grid item xs={12} md={4}>
+        <Paper elevation={3} sx={{ p: 2, height: '400px', overflowY: 'auto' }}>
+          <Typography variant="h6" gutterBottom>Select Metrics</Typography>
+          {(Object.keys(healthData[0] || {}) as Array<keyof HealthEnvironmentData>)
+            .filter(key => typeof healthData[0]?.[key] === 'number')
+            .map((metric) => (
+              <Chip
+                key={metric}
+                label={metric}
+                onClick={() => handleMetricToggle(metric as HealthMetric)}
+                color={selectedMetrics.includes(metric as HealthMetric) ? 'primary' : 'default'}
+                sx={{ m: 0.5 }}
+              />
+            ))
+          }
+        </Paper>
+      </Grid>
+    </Grid>
+  );
 
-  const EnvironmentalDataView = useMemo(() => () => {
-    const latestData = healthData[healthData.length - 1] || {};
-    return (
-      <Grid container spacing={2}>
-        <Grid item xs={12} sm={6} md={4}>
-          <Tooltip title="Current air quality">
-            <Paper elevation={3} sx={{ p: 2, display: 'flex', alignItems: 'center' }}>
-              <CloudQueue sx={{ fontSize: 40, mr: 2 }} />
-              <Box>
-                <Typography variant="h6">Air Quality</Typography>
-                <Typography variant="h4">{latestData.airQualityDescription || 'N/A'}</Typography>
-              </Box>
-            </Paper>
-          </Tooltip>
-        </Grid>
-        {/* Add more environmental data items here */}
-      </Grid>
-    );
-  }, [healthData]);
+  
+  const GeospatialView: React.FC = () => (
+    <Box sx={{ height: 'calc(100vh - 200px)', display: 'flex', flexDirection: 'column' }}>
+      <Paper elevation={3} sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', mb: 2 }}>
+        <Box sx={{ flexGrow: 1, minHeight: 0 }}>
+          <GeospatialChart
+            data={healthData}
+            metric={geospatialMetric}
+          />
+        </Box>
+      </Paper>
+      <FormControl fullWidth>
+        <InputLabel>Geospatial Metric</InputLabel>
+        <Select
+          value={geospatialMetric}
+          onChange={handleGeospatialMetricChange}
+          label="Geospatial Metric"
+        >
+          {(Object.keys(healthData[0] || {}) as Array<keyof HealthEnvironmentData>)
+            .filter(key => typeof healthData[0]?.[key] === 'number')
+            .map((metric) => (
+              <MenuItem key={metric} value={metric as HealthMetric}>{metric}</MenuItem>
+            ))
+          }
+        </Select>
+      </FormControl>
+    </Box>
+  );
 
-  const HealthScoresView = useMemo(() => () => {
+  if (loading) {
     return (
-      <Grid container spacing={2}>
-        <Grid item xs={12} sm={6} md={4}>
-          <Tooltip title="Cardio health score">
-            <Paper elevation={3} sx={{ p: 2, display: 'flex', alignItems: 'center' }}>
-              <Favorite sx={{ fontSize: 40, mr: 2 }} />
-              <Box>
-                <Typography variant="h6">Cardio Health Score</Typography>
-                <Typography variant="h4">{healthScores?.cardioHealthScore || 'N/A'}</Typography>
-              </Box>
-            </Paper>
-          </Tooltip>
-        </Grid>
-        {/* Add more health score items here */}
-      </Grid>
+      <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
+        <CircularProgress />
+      </Box>
     );
-  }, [healthScores]);
+  }
 
-  const RegionalComparisonView = useMemo(() => () => {
+  if (error) {
     return (
-      <Grid container spacing={2}>
-        <Grid item xs={12}>
-          <Tooltip title="Average environmental impact score">
-            <Paper elevation={3} sx={{ p: 2 }}>
-              <Typography variant="h6">Average Environmental Impact Score</Typography>
-              <Typography variant="h4">{regionalComparison?.averageEnvironmentalImpactScore || 'N/A'}</Typography>
-            </Paper>
-          </Tooltip>
-        </Grid>
-        {/* Add more regional comparison items here */}
-      </Grid>
+      <Box p={3}>
+        <Alert severity="error">{error}</Alert>
+      </Box>
     );
-  }, [regionalComparison]);
+  }
 
   return (
-    <Box sx={{ width: '100%', p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h4">Welcome, {user?.name || 'User'}</Typography>
-        <IconButton onClick={handleMenuClick}>
-          <MoreVert />
+    <Box sx={{ width: '100%', height: '100vh', display: 'flex', flexDirection: 'column', p: 3 }}>
+      <Typography variant="h4" gutterBottom>Geospatial Health Dashboard</Typography>
+      <Tabs value={currentView} onChange={handleViewChange} aria-label="dashboard views" sx={{ mb: 2 }}>
+        <Tab icon={<Timeline />} label="Data Comparison" />
+        <Tab icon={<Map />} label="Geospatial View" />
+      </Tabs>
+      <Box sx={{ mb: 2 }}>
+        <FormControl sx={{ minWidth: 120, mr: 2 }}>
+          <InputLabel>Chart Type</InputLabel>
+          <Select
+            value={chartType}
+            onChange={handleChartTypeChange}
+            label="Chart Type"
+          >
+            <MenuItem value="line"><Timeline /> Line</MenuItem>
+            <MenuItem value="bar"><BarChart /> Bar</MenuItem>
+            <MenuItem value="pie"><PieChart /> Pie</MenuItem>
+          </Select>
+        </FormControl>
+        <IconButton onClick={() => fetchHealthData(1)}>
+          <Add /> More Data
         </IconButton>
       </Box>
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleMenuClose}
-      >
-        <MenuItem onClick={handleMenuClose}>Sync Data</MenuItem>
-        <MenuItem onClick={handleMenuClose}>Settings</MenuItem>
-        <MenuItem onClick={handleMenuClose}>Help</MenuItem>
-      </Menu>
-      <Tabs value={currentView} onChange={handleViewChange} aria-label="dashboard views" sx={{ mb: 2 }}>
-        <Tab label="Health Data" />
-        <Tab label="Environmental Data" />
-        <Tab label="Health Scores" />
-        <Tab label="Regional Comparison" />
-      </Tabs>
-      <Box sx={{ mt: 2 }}>
-        <Typography variant="caption">
-          Last updated: {healthData[healthData.length - 1]?.timestamp ? new Date(healthData[healthData.length - 1].timestamp).toLocaleString() : 'N/A'}
-        </Typography>
-      </Box>
-      <Box sx={{ mt: 2 }}>
-        {currentView === 0 && <HealthDataView />}
-        {currentView === 1 && <EnvironmentalDataView />}
-        {currentView === 2 && <HealthScoresView />}
-        {currentView === 3 && <RegionalComparisonView />}
-      </Box>
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-        <Pagination
-          count={totalPages}
-          page={currentPage}
-          onChange={handlePageChange}
-          color="primary"
-        />
+      <Box sx={{ flexGrow: 1, minHeight: 0 }}>
+        {currentView === 0 && <DataComparisonView />}
+        {currentView === 1 && <GeospatialView />}
       </Box>
     </Box>
   );
 };
+
+Dashboard.displayName = 'Dashboard';
 
 export default Dashboard;

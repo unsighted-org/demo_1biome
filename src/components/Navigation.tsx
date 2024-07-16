@@ -22,9 +22,8 @@ export default function Navigation(): JSX.Element {
     { route: 'stats', label: 'Stats', icon: <Settings /> },
   ];
 
-  // Add the Login button if the user is not logged in
   if (!user) {
-    navItems.push({ route: 'login', label: 'Login', icon: <Person /> });
+    return null;
   }
 
   return (
