@@ -1,22 +1,30 @@
+
 import { ObjectId } from 'mongodb';
 import { Server as SocketIOServer } from 'socket.io';
 
 import { getCosmosClient } from '@/config/azureConfig';
 import {
   CACHE_DURATION,
-  PAGE_SIZE,
+  // PAGE_SIZE,
   SOCKET_PATH,
   SOCKET_UPDATE_INTERVAL
 } from '@/constants';
-import { getActivityLevel, getEnvironmentalImpact, getAirQualityDescription, getUVIndexDescription, getNoiseLevelDescription } from '@/lib/helpers';
+import { 
+  getAirQualityDescription, 
+  getNoiseLevelDescription, 
+  getUVIndexDescription, 
+  getEnvironmentalImpact 
+} from '@/lib/helpers';
 
 import type { HealthEnvironmentData, ServerHealthEnvironmentData } from '@/types';
+import type { Server as HTTPServer } from 'http';
 import type { FindOptions} from 'mongodb';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
+
 interface SocketServer extends NodeJS.ReadWriteStream {
   io?: SocketIOServer;
-  server?: any;
+  server?: HTTPServer;
 }
 
 const cachedPages: { [key: number]: { data: HealthEnvironmentData[]; timestamp: number } } = {};
@@ -49,24 +57,32 @@ async function fetchHealthData(userId: string, pageNumber: number, limitNumber: 
   
   const items = await collection.find(query, options).toArray();
 
-  return items.map(item => ({
-    ...item,
-    _id: item._id.toString(),
-    userId: item.userId.toString(),
-    basicHealthId: item.basicHealthId.toString(),
-    environmentalId: item.environmentalId.toString(),
-    scoresId: item.scoresId.toString(),
-    regionId: item.regionId.toString(),
-    cityId: item.cityId.toString(),
-    areaId: item.areaId.toString(),
-    timestamp: item.timestamp.toISOString(),
-    airQualityDescription: getAirQualityDescription(item.airQualityIndex),
-    uvIndexDescription: getUVIndexDescription(item.uvIndex),
-    noiseLevelDescription: getNoiseLevelDescription(item.noiseLevel),
-    environmentalImpact: getEnvironmentalImpact(item),
-    bmi: Number((item.weight / Math.pow(item.height / 100, 2)).toFixed(1)),
-    airQuality: getAirQualityDescription(item.airQualityIndex),
-  }));
+  return items.map(item => {
+    const serverItem = item as unknown as ServerHealthEnvironmentData; // Cast to the correct type
+    return {
+      ...serverItem,
+      _id: serverItem._id.toString(),
+      userId: serverItem.userId.toString(),
+      basicHealthId: serverItem.basicHealthId.toString(),
+      environmentalId: serverItem.environmentalId.toString(),
+      scoresId: serverItem.scoresId.toString(),
+      regionId: serverItem.regionId.toString(),
+      cityId: serverItem.cityId.toString(),
+      areaId: serverItem.areaId.toString(),
+      timestamp: serverItem.timestamp.toISOString(),
+      bmi: Number((serverItem.weight / Math.pow(serverItem.height / 100, 2)).toFixed(1)),
+      airQuality: getAirQualityDescription(serverItem.airQualityIndex),
+      // Add missing properties
+      state: '', // Add a default value or fetch from somewhere if available
+      airQualityDescription: getAirQualityDescription(serverItem.airQualityIndex),
+      uvIndexDescription: getUVIndexDescription(serverItem.uvIndex),
+      noiseLevelDescription: getNoiseLevelDescription(serverItem.noiseLevel),
+      environmentalImpact: getEnvironmentalImpact(serverItem as any), // You might need to adjust this function
+      onBorder: [], // Add a default value or fetch from somewhere if available
+      clusterSize: undefined,
+      originalPoint: undefined,
+    } as HealthEnvironmentData;
+  });
 }
 
 function isCacheValid(timestamp: number): boolean {
@@ -75,8 +91,12 @@ function isCacheValid(timestamp: number): boolean {
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse
-) {
+  res: NextApiResponse<{
+    data: HealthEnvironmentData[];
+    totalPages: number;
+    currentPage: number;
+  } | { error: string; details?: string }>
+): Promise<void> {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
