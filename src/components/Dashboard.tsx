@@ -87,8 +87,10 @@ const Dashboard: React.FC = () => {
         <Box sx={{ flexGrow: 1, minHeight: 0 }}>
           <GeospatialChart
             data={healthData}
-            metric={geospatialMetric}
-          />
+            metric={geospatialMetric} center={{
+              latitude: 0,
+              longitude: 0
+            }} zoom={0}          />
         </Box>
       </Paper>
       <FormControl fullWidth>
