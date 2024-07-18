@@ -1,7 +1,9 @@
+// theme.ts
 import { createTheme, responsiveFontSizes } from '@mui/material/styles';
 
 let theme = createTheme({
   palette: {
+    mode: 'dark', // Enforce dark mode
     primary: {
       main: '#1976d2',
       light: '#42a5f5',
@@ -15,8 +17,8 @@ let theme = createTheme({
       contrastText: '#ffffff',
     },
     background: {
-      default: '#f5f5f5',
-      paper: '#ffffff',
+      default: '#121212', // Dark background
+      paper: '#1d1d1d',   // Darker background for paper elements
     },
   },
   typography: {
