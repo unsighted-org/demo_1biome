@@ -255,35 +255,47 @@
 // export default LoginPage;
 
 
+
+
 import { Email, Lock, Visibility, VisibilityOff } from '@mui/icons-material';
 import { Box, TextField, Button, Typography, Alert, InputAdornment, CircularProgress, IconButton } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { Preload, shaderMaterial } from '@react-three/drei';
-import { Canvas, useFrame, useThree, extend } from '@react-three/fiber';
+import { shaderMaterial } from '@react-three/drei';
+import { Canvas, useFrame, useThree, extend, ThreeEvent } from '@react-three/fiber';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import React, { useState, useCallback, useMemo, useEffect, useRef, use } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import * as THREE from 'three';
 
 import { useAuth } from '@/context/AuthContext';
 
-import type { UserLoginData } from '@/types';
 
-// Custom star shader
+// import type { UserLoginData } from '@/types';
+
+// Define types for props and state
 interface ShootingStarProps {
   position: THREE.Vector3;
   speed: number;
   size: number;
 }
 
-// Define the type for the custom shader material
 type StarMaterialImpl = {
   time: { value: number };
   color: { value: THREE.Color };
 } & THREE.ShaderMaterial;
 
-// Create the custom shader material
+// Extend JSX IntrinsicElements
+// Augment JSX IntrinsicElements to include our custom element
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      starMaterialShader: React.PropsWithChildren<{ ref?: React.Ref<StarMaterialImpl>, color?: THREE.Color }>;
+    }
+  }
+}
+
+// Custom star shader material
 const StarMaterialShader = shaderMaterial(
   { time: 0, color: new THREE.Color(1, 1, 1) },
   // vertex shader
@@ -308,21 +320,11 @@ const StarMaterialShader = shaderMaterial(
   `
 );
 
-// Extend Three.js with our custom material
 extend({ StarMaterialShader });
 
-// Augment JSX IntrinsicElements to include our custom element
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      starMaterialShader: React.PropsWithChildren<{ ref?: React.Ref<StarMaterialImpl>, color?: THREE.Color }>;
-    }
-  }
-}
-
 const ShootingStar: React.FC<ShootingStarProps> = ({ position, speed, size }) => {
-  const mesh = useRef<THREE.Mesh | null>(null);
-  const trail = useRef<THREE.Mesh | null>(null);
+  const mesh = useRef<THREE.Mesh>(null);
+  const trail = useRef<THREE.Mesh>(null);
   const materialRef = useRef<StarMaterialImpl>(null);
   const { viewport } = useThree();
 
@@ -337,7 +339,6 @@ const ShootingStar: React.FC<ShootingStarProps> = ({ position, speed, size }) =>
       mesh.current.position.x += moveX;
       mesh.current.position.y += moveY;
 
-      // Position the trail behind the star
       trail.current.position.x = mesh.current.position.x - (tailLength / 2) * Math.cos(Math.atan2(moveY, moveX));
       trail.current.position.y = mesh.current.position.y - (tailLength / 2) * Math.sin(Math.atan2(moveY, moveX));
       trail.current.rotation.z = Math.atan2(moveY, moveX);
@@ -606,7 +607,7 @@ const LoginPage: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const handleLogin = useCallback(async (e: React.FormEvent) => {
+   const handleLogin = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
 
@@ -661,7 +662,6 @@ const LoginPage: React.FC = () => {
               gap: 2,
               padding: 4,
               borderRadius: 2,
-              backgroundColor: 'rgba(0, 0, 0, 0.7)',
             }}
           >
             <Typography variant="h3" component="h1" align="center" sx={{ mb: 4, color: '#FFFFFF' }}>
@@ -727,7 +727,7 @@ const LoginPage: React.FC = () => {
             >
               {authLoading ? <CircularProgress size={24} sx={{ color: '#000000' }} /> : 'Sign In'}
             </StyledButton>
-            
+
             <Typography align="center" sx={{ mt: 2, color: 'rgb(0, 255, 255)', fontSize: '0.9rem' }}>
               <Link href="/splashPage" style={{ color: 'inherit', textDecoration: 'underline' }}>
                 New to 1Biome? Join the Ecosystem
@@ -741,3 +741,4 @@ const LoginPage: React.FC = () => {
 };
 
 export default LoginPage;
+
