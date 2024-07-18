@@ -142,6 +142,7 @@
 
 //  BELOW IS THE DEVELOPMENT VIRSION OF THE CODE ABOVE
 
+
 import { Menu as MenuIcon, Close as CloseIcon, Dashboard, Person, Settings, Public } from '@mui/icons-material';
 import { AppBar, Box, Container, Toolbar, Typography, useTheme, useMediaQuery, Drawer, IconButton, List, ListItem, ListItemText, ListItemIcon } from '@mui/material';
 import Link from 'next/link';
@@ -224,10 +225,31 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const showNavigation = !isLoginPage && !isSplashPage && !isHomePage && user;
 
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+   return (
+    <Box 
+      sx={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        minHeight: '100vh',
+        ...(isLoginPage || isSplashPage ? {
+          '&::before': {
+            content: '""',
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundImage: 'url("/night-sky.png")',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            zIndex: -1,
+          }
+        } : {})
+      }}
+    >
       {showNavigation && (
-        <AppBar position="static" elevation={0} sx={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
+        <AppBar position="static" elevation={0} sx={{ backgroundColor: 'rgba(250, 243, 224, 0)' }}>
           <Toolbar sx={{ justifyContent: 'space-between' }}>
             <Typography variant="h6" component="div" sx={{ fontWeight: 'bold', color: theme.palette.primary.main }}>
               1Biome
@@ -273,12 +295,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           py: 4,
           px: 2,
           ...(isLoginPage || isSplashPage ? {
-            backgroundImage: 'url("/night-sky.png")',
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            minHeight: '100vh',
+            width: '100%',
+            margin: 0,
+            padding: 0,
+            overflow: 'hidden',
           } : {}),
         }}
       >
