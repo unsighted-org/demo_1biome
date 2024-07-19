@@ -1,4 +1,3 @@
-
 import { Add, Map, Timeline, BarChart, PieChart, ThreeDRotation, Refresh } from '@mui/icons-material';
 import {
   Box, Typography, CircularProgress, Alert, Grid, Paper, Tabs, Tab, useTheme, useMediaQuery, Button,
@@ -9,17 +8,16 @@ import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 
 import CustomChart from '@/components/CustomChart';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import GeospatialView from '@/components/GeospatialChart';
 import HealthTrendChart from '@/components/HealthTrendChart';
 import { useAuth } from '@/context/AuthContext';
 import { withAuth } from '@/context/withAuth';
 import { useHealth } from '@/services/HealthContext';
 
-import GeospatialView from '../components/GeospatialChart';
 
 import type { HealthTrendChartRef } from '@/components/HealthTrendChart';
 import type { HealthEnvironmentData, HealthMetric } from '@/types';
 import type { SelectChangeEvent } from '@mui/material';
-
 
 type ChartType = 'line' | 'bar' | 'pie' | '1D' | '2D' | '3D';
 
@@ -36,6 +34,8 @@ const StatsPage: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
   const chartRef = useRef<HealthTrendChartRef>(null);
+  const mapCenter = { latitude: 0, longitude: 0 };
+  const mapZoom = 1.5;
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -82,6 +82,10 @@ const StatsPage: React.FC = () => {
     }
     fetchHealthData(1);
   }, [fetchHealthData]);
+
+  const handleChartReady = useCallback(() => {
+    console.log('Geospatial chart is ready');
+  }, []);
 
   const ResponsiveContainer: React.FC<React.PropsWithChildren<unknown>> = ({ children }) => (
     <Box
@@ -187,12 +191,18 @@ const StatsPage: React.FC = () => {
                   {currentView === 0 ? (
                     <DataComparisonView />
                   ) : (
+                  <Box sx={{ height: '100%', position: 'relative' }}>
                     <GeospatialView
                       data={healthData}
                       metric={chartType as HealthMetric}
                       geospatialMetric={geospatialMetric}
                       handleGeospatialMetricChange={handleGeospatialMetricChange}
-                    />
+                      center={mapCenter}
+                      zoom={mapZoom}
+                      instanceId="stats-page-geospatial"
+                      onChartReady={handleChartReady}
+                        />
+                      </Box>
                   )}
                 </Box>
               </Paper>
@@ -208,7 +218,7 @@ const StatsPage: React.FC = () => {
         </Grid>
       </Grid>
     );
-  }, [healthLoading, error, currentTab, handleTabChange, isMobile, currentView, handleViewChange, chartType, handleChartTypeChange, DataComparisonView, healthData, geospatialMetric, handleGeospatialMetricChange, handleHealthTrendDataUpdate, fetchHealthData]);
+  }, [healthLoading, error, currentTab, handleTabChange, isMobile, currentView, handleViewChange, chartType, handleChartTypeChange, DataComparisonView, healthData, geospatialMetric, handleGeospatialMetricChange, mapCenter, mapZoom, handleChartReady, handleHealthTrendDataUpdate, fetchHealthData]);
 
   const titleFontSize = useMemo(() => {
     if (isMobile) return 'clamp(1.5rem, 5vw, 2rem)';
@@ -239,7 +249,7 @@ const StatsPage: React.FC = () => {
       )}
       onReset={handleRefresh}
     >
-      <Box sx={{
+      <Box sx={{ 
         p: { xs: 1, sm: 2, md: 3 },
         minHeight: '100vh',
         height: '100%',
