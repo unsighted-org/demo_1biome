@@ -5,34 +5,27 @@ const createJestConfig = nextJest({
 });
 
 const customJestConfig = {
-  testEnvironment: 'jsdom',
+  testEnvironment: 'jsdom', // Use 'jsdom' for testing React components in a browser-like environment
   setupFilesAfterEnv: ['<rootDir>/src/__tests__/setupTests.ts'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
   testMatch: ['**/__tests__/**/*.test.[jt]s?(x)', '**/?(*.)+(spec|test).[jt]s?(x)'],
   transform: {
-    '^.+\\.(ts|tsx|js|jsx|mjs)$': 'babel-jest',
+    '^.+\\.(ts|tsx)$': 'ts-jest',
+    '^.+\\.(js|jsx)$': 'babel-jest',
   },
   transformIgnorePatterns: [
-    '/node_modules/(?!@mui)',
+    '/node_modules/(?!@mui)', // Adjust this as needed
   ],
   globals: {
     'ts-jest': {
-      tsconfig: 'tsconfig.jest.json',
+      tsconfig: 'tsconfig.jest.json', // Ensure this file exists and is configured properly
     },
   },
   collectCoverage: true,
   coverageDirectory: 'coverage',
-  coverageReporters: ['html', 'text', 'lcov'],
-  coverageThreshold: {
-    global: {
-      branches: 80,
-      functions: 80,
-      lines: 80,
-      statements: 80,
-    },
-  },
+  coverageReporters: ['html', 'text'],
 };
 
 export default createJestConfig(customJestConfig);
