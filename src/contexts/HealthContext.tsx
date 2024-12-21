@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useCallback, useState, useEffect, useMemo } from 'react';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { createClusterManager } from '@/lib/clustering';
 import healthService from '@/services/HealthService';
 
