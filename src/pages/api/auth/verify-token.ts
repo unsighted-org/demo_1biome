@@ -1,10 +1,12 @@
 import { verify } from 'jsonwebtoken';
 import { ObjectId } from 'mongodb';
 
-import { getCosmosClient } from '../../../config/azureConfig';
-import { convertToUserState } from '../../../lib/userUtils';
+import { getCosmosClient } from '@/config/azureCosmosClient';
+import { COLLECTIONS } from '@/constants/collections';
+import { convertToUserState } from '@/lib/userUtils';
+import { redisService } from '@/services/cache/redisService';
 
-import type { ServerUser, ServerUserSettings, UserResponse } from '../../../types';
+import type { ServerUser, ServerUserSettings, UserResponse } from '@/types';
 import type { Secret, JwtPayload } from 'jsonwebtoken';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
@@ -12,11 +14,21 @@ interface CustomJwtPayload extends JwtPayload {
   userId: string;
 }
 
-const verifyToken = (token: string): Promise<string | null> => {
-  if (!process.env.JWT_SECRET) return Promise.resolve(null);
+const verifyToken = async (token: string): Promise<string | null> => {
+  if (!process.env.JWT_SECRET) return null;
+
+  // Try to get cached verification result
+  const cachedUserId = await redisService.getValue(`token:${token}`);
+  if (cachedUserId) return cachedUserId;
+
   return new Promise((resolve) => {
-    verify(token, process.env.JWT_SECRET as Secret, (err, decoded) => {
-      resolve(err ? null : (decoded as CustomJwtPayload).userId);
+    verify(token, process.env.JWT_SECRET as Secret, async (err, decoded) => {
+      const userId = err ? null : (decoded as CustomJwtPayload).userId;
+      if (userId) {
+        // Cache the verification result for 1 hour
+        await redisService.setValue(`token:${token}`, userId, 3600);
+      }
+      resolve(userId);
     });
   });
 };
@@ -34,6 +46,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
   }
 
   try {
+    // First, check if the user data is cached
+    const cachedUserData = await redisService.getSession(token);
+    if (cachedUserData) {
+      res.status(200).json(JSON.parse(cachedUserData));
+      return;
+    }
+
     const userId = await verifyToken(token);
     if (!userId) {
       res.status(401).json({ error: 'Invalid token' });
@@ -41,13 +60,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     }
 
     const client = await getCosmosClient();
-    const db = client?.db('aetheriqdatabasemain');
-    if (!db) {
-      throw new Error('Database is undefined');
+    if (!client) {
+      throw new Error('Database client is undefined');
     }
 
-    const usersCollection = db.collection<ServerUser>('Users');
-    const settingsCollection = db.collection<ServerUserSettings>('UserSettings');
+    const db = client.db();
+    const usersCollection = db.collection<ServerUser>(COLLECTIONS.USERS);
+    const settingsCollection = db.collection<ServerUserSettings>(COLLECTIONS.SETTINGS);
     const userObjectId = new ObjectId(userId);
     
     const serverUser = await usersCollection.findOne({ _id: userObjectId });
@@ -58,6 +77,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
     const serverSettings = await settingsCollection.findOne({ userId: userObjectId });
     const userResponse = convertToUserState(serverUser, serverSettings, token);
+    
+    // Cache the user data
+    await redisService.storeSession(token, JSON.stringify(userResponse));
     
     res.status(200).json(userResponse);
   } catch (error) {

@@ -1,15 +1,11 @@
-import { createSlice, createAction } from '@reduxjs/toolkit';
-
+import { createSlice, createAction, PayloadAction } from '@reduxjs/toolkit';
 import type { HealthEnvironmentData, HealthState, HealthScores, RegionalComparison } from '@/types';
-import type { PayloadAction } from '@reduxjs/toolkit';
 
 const initialState: HealthState = {
   data: [],
   lastSyncTime: null,
   scores: null,
   regionalComparison: null,
-  loading: false,
-  error: null
 };
 
 // Create actions for triggering notifications

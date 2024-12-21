@@ -4,7 +4,8 @@ import formidable from 'formidable';
 import { sign } from 'jsonwebtoken';
 import { ObjectId } from 'mongodb';
 
-import { getCosmosClient } from '@/config/azureConfig';
+import { getCollection } from '@/config/azureCosmosClient';
+import { COLLECTIONS } from '@/constants/collections';
 
 import type { ServerUser, UserSignupData, UserState, UserSettings } from '@/types';
 import type { NextApiRequest, NextApiResponse } from 'next';
@@ -37,14 +38,8 @@ const signupHandler = async (req: NextApiRequest, res: NextApiResponse): Promise
     const signupData = JSON.parse(signupDataString) as UserSignupData;
 
     try {
-      const client = await getCosmosClient();
-      const db = client?.db('aetheriqdatabasemain');
-      if (!db) {
-        throw new Error('Database is undefined');
-      }
-
-      const users = db.collection<ServerUser>('users');
-      const existingUser = await users.findOne({ email: signupData.email });
+      const usersCollection = await getCollection(COLLECTIONS.USERS);
+      const existingUser = await usersCollection.findOne({ email: signupData.email });
       if (existingUser) {
         return res.status(409).json({ error: 'User already exists' });
       }
@@ -65,7 +60,7 @@ const signupHandler = async (req: NextApiRequest, res: NextApiResponse): Promise
           deletedAt: null
       };
 
-      await users.insertOne(newServerUser);
+      await usersCollection.insertOne(newServerUser);
 
       const token = sign({ userId: newServerUser._id.toString() }, process.env.JWT_SECRET!, { expiresIn: '7d' });
 

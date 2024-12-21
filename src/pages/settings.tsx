@@ -1,38 +1,21 @@
-
-// Make environment impact alerts toggleable when toggling environmental impact notifications in the settings page by adding a new function handleNotificationPreferenceToggle that toggles the environmentalImpact notification preference in the user settings. The function should be called when the environmental impact alerts switch is toggled in the settings page. The function should update the user settings in the database and should be an async function that takes a single argument, the notification preference key to toggle. The function should be defined in the SettingsPage component and should be called with the 'environmentalImpact' key when the environmental impact alerts switch is toggled.
-// What the function should do when called with the 'environmentalImpact' key when envrironmental impact alerts switch is toggled in the settings page:
-// 1. Check if the user and user settings are available.
-// 2. Check if the environmentalImpact notification preference is available in the user settings.
-// 3. Toggle the environmentalImpact notification preference in the user settings.
-// 4. Update the user settings in the database using the updateUserSettings function from the useAuth hook.
-// 5. Catch and log any errors that occur during the update process.
-// 6. The function should be an async function that takes a single argument, the notification preference key to toggle.
-// 7. The function should be called with the 'environmentalImpact' key when the environmental impact alerts switch is toggled in the settings page.
-// 8. The function should be defined in the SettingsPage component.
-// 9. The function should utlize user geo location data to determine the country of the user, and overall location in order to alert of the environmental impact of the user's location.
-// 10. The funtion should only be trigger once without repeating the same action multiple times just because the switch is toggled multiple times.
-// 11. Once ouf of environmental impact radius alert of Environmental impact of the user's location should be triggers to let them know no longer an impact. 
-// 12. The function should also automaticlaly alert when the impact that was orignally alerted is no longer an issue.
-// 13. Allow within the notification preferences to set the radius of the environmental impact alerts to be triggered.
-// 14. So Geo location will be used for allow radius with a figure touch of the map of there current aread for interactivity.
-
 import { 
   Notifications, Lock, ExitToApp, VpnKey, DeleteForever, Favorite, DirectionsRun, Nature 
 } from '@mui/icons-material';
 import { 
   Box, List, ListSubheader, ListItem, ListItemIcon, ListItemText, Switch, Divider, 
-  Paper, Typography, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle 
+  Paper, Typography, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
+  CircularProgress
 } from '@mui/material';
 import { useRouter } from 'next/router';
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 
 import CustomButton from '@/components/CustomButton';
 import { useAuth } from '@/context/AuthContext';
+import { useNotificationContext } from '@/context/NotificationContext';
 import { withAuth } from '@/context/withAuth';
 import { useAppSelector } from '@/store';
 
 import type { UserSettings, UserState } from '@/types';
-
 
 type NotificationPreferenceKey = keyof UserSettings['notificationPreferences'];
 type ToggleableSettings = Omit<UserSettings, '_id' | 'userId' | 'dataRetentionPeriod'>;
@@ -40,45 +23,75 @@ type ToggleableSettings = Omit<UserSettings, '_id' | 'userId' | 'dataRetentionPe
 const SettingsPage: React.FC = () => {
   const router = useRouter();
   const { user, signOut, updateUserSettings } = useAuth();
+  const { showNotification } = useNotificationContext();
   const settings = useAppSelector((state: { user: UserState }) => state.user.settings);
   const [openLogoutDialog, setOpenLogoutDialog] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
 
-  const handleToggle = async (key: keyof ToggleableSettings): Promise<void> => {
-    if (user && settings) {
+  const handleToggle = useCallback(async (key: keyof ToggleableSettings): Promise<void> => {
+    if (!user || !settings || isUpdating) return;
+
+    setIsUpdating(true);
+    try {
       const updatedSettings: Partial<UserSettings> = {
         [key]: !settings[key]
       };
-      try {
-        await updateUserSettings(updatedSettings);
-      } catch (error) {
-        console.error('Update settings error:', error);
-      }
+      await updateUserSettings(updatedSettings);
+      showNotification({
+        message: 'Settings updated successfully',
+        type: 'success'
+      });
+    } catch (error) {
+      console.error('Update settings error:', error);
+      showNotification({
+        message: 'Failed to update settings',
+        type: 'error'
+      });
+    } finally {
+      setIsUpdating(false);
     }
-  }
+  }, [user, settings, isUpdating, updateUserSettings, showNotification]);
 
-  const handleNotificationPreferenceToggle = async (preference: NotificationPreferenceKey): Promise<void> => {
-    if (user && settings && settings.notificationPreferences) {
+  const handleNotificationPreferenceToggle = useCallback(async (preference: NotificationPreferenceKey): Promise<void> => {
+    if (!user || !settings?.notificationPreferences || isUpdating) return;
+
+    setIsUpdating(true);
+    try {
       const updatedPreferences: UserSettings['notificationPreferences'] = {
         ...settings.notificationPreferences,
         [preference]: !settings.notificationPreferences[preference]
       };
-      try {
-        await updateUserSettings({ notificationPreferences: updatedPreferences });
-      } catch (error) {
-        console.error('Update notification preference error:', error);
-      }
+      await updateUserSettings({ notificationPreferences: updatedPreferences });
+      showNotification({
+        message: 'Notification preferences updated successfully',
+        type: 'success'
+      });
+    } catch (error) {
+      console.error('Update notification preference error:', error);
+      showNotification({
+        message: 'Failed to update notification preferences',
+        type: 'error'
+      });
+    } finally {
+      setIsUpdating(false);
     }
-  };
+  }, [user, settings, isUpdating, updateUserSettings, showNotification]);
 
-  const handleLogout = async (): Promise<void> => {
+  const handleLogout = useCallback(async (): Promise<void> => {
     try {
       await signOut();
-      // The signOut function in AuthContext should handle the redirection
+      showNotification({
+        message: 'Logged out successfully',
+        type: 'success'
+      });
     } catch (error) {
       console.error('Logout error:', error);
-      // You might want to show an error message to the user here
+      showNotification({
+        message: 'Failed to logout',
+        type: 'error'
+      });
     }
-  };
+  }, [signOut, showNotification]);
 
   const handleLogoutClick = (): void => {
     setOpenLogoutDialog(true);
@@ -101,6 +114,7 @@ const SettingsPage: React.FC = () => {
           <ListItemText primary="Enable Notifications" />
           <Switch
             edge="end"
+            disabled={isUpdating}
             checked={settings?.notificationsEnabled ?? false}
             onChange={() => handleToggle('notificationsEnabled')}
           />
@@ -111,6 +125,7 @@ const SettingsPage: React.FC = () => {
               <ListItemText primary="Daily Reminder" secondary="Receive daily reminders to log your health data" />
               <Switch
                 edge="end"
+                disabled={isUpdating}
                 checked={settings?.dailyReminder ?? false}
                 onChange={() => handleToggle('dailyReminder')}
               />
@@ -119,6 +134,7 @@ const SettingsPage: React.FC = () => {
               <ListItemText primary="Weekly Summary" secondary="Receive weekly health summaries" />
               <Switch
                 edge="end"
+                disabled={isUpdating}
                 checked={settings?.weeklySummary ?? false}
                 onChange={() => handleToggle('weeklySummary')}
               />
@@ -129,6 +145,7 @@ const SettingsPage: React.FC = () => {
               <ListItemText primary="Heart Rate Alerts" />
               <Switch
                 edge="end"
+                disabled={isUpdating}
                 checked={settings?.notificationPreferences?.heartRate ?? false}
                 onChange={() => handleNotificationPreferenceToggle('heartRate')}
               />
@@ -138,6 +155,7 @@ const SettingsPage: React.FC = () => {
               <ListItemText primary="Step Goal Notifications" />
               <Switch
                 edge="end"
+                disabled={isUpdating}
                 checked={settings?.notificationPreferences?.stepGoal ?? false}
                 onChange={() => handleNotificationPreferenceToggle('stepGoal')}
               />
@@ -147,6 +165,7 @@ const SettingsPage: React.FC = () => {
               <ListItemText primary="Environmental Impact Alerts" />
               <Switch
                 edge="end"
+                disabled={isUpdating}
                 checked={settings?.notificationPreferences?.environmentalImpact ?? false}
                 onChange={() => handleNotificationPreferenceToggle('environmentalImpact')}
               />
@@ -161,6 +180,7 @@ const SettingsPage: React.FC = () => {
           <ListItemText primary="Share Data with Friends" secondary="Allow friends to see your health stats" />
           <Switch
             edge="end"
+            disabled={isUpdating}
             checked={settings?.shareData ?? false}
             onChange={() => handleToggle('shareData')}
           />
@@ -182,7 +202,27 @@ const SettingsPage: React.FC = () => {
 
   return (
     <Box sx={{ maxWidth: 600, mx: 'auto', p: 2 }}>
-      <Paper elevation={3} sx={{ bgcolor: 'background.paper' }}>
+      {isUpdating && (
+        <Box sx={{ 
+          position: 'fixed', 
+          top: 0, 
+          left: 0, 
+          right: 0, 
+          bottom: 0, 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          bgcolor: 'rgba(0, 0, 0, 0.5)',
+          zIndex: 9999 
+        }}>
+          <CircularProgress />
+        </Box>
+      )}
+      <Paper elevation={3} sx={{ 
+        bgcolor: 'background.paper',
+        backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(255, 255, 255, 0.18)',
+      }}>
         {user ? (
           renderSettingsContent()
         ) : (
@@ -200,25 +240,28 @@ const SettingsPage: React.FC = () => {
         <CustomButton
           title={user ? "Logout" : "Login"}
           onClick={user ? handleLogoutClick : () => router.push('/login')}
-          startIcon={<ExitToApp />}
+          icon={<ExitToApp />}
           fullWidth
         />
       </Box>
+
       <Dialog
         open={openLogoutDialog}
         onClose={handleLogoutCancel}
-        aria-labelledby="alert-dialog-title"
-        aria-describedby="alert-dialog-description"
+        aria-labelledby="logout-dialog-title"
+        aria-describedby="logout-dialog-description"
       >
-        <DialogTitle id="alert-dialog-title">{"Confirm Logout"}</DialogTitle>
+        <DialogTitle id="logout-dialog-title">Confirm Logout</DialogTitle>
         <DialogContent>
-          <DialogContentText id="alert-dialog-description">
-            Are you sure you want to log out? This will end your session on all devices.
+          <DialogContentText id="logout-dialog-description">
+            Are you sure you want to logout? You will need to login again to access your account.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleLogoutCancel}>Cancel</Button>
-          <Button onClick={handleLogoutConfirm} autoFocus>
+          <Button onClick={handleLogoutCancel} color="primary">
+            Cancel
+          </Button>
+          <Button onClick={handleLogoutConfirm} color="primary" autoFocus>
             Logout
           </Button>
         </DialogActions>
@@ -226,6 +269,5 @@ const SettingsPage: React.FC = () => {
     </Box>
   );
 };
-
 
 export default withAuth(SettingsPage);
