@@ -2,7 +2,7 @@
 
 import { monitoringManager } from '../managers/MonitoringManager';
 import { MetricCategory, MetricType, MetricUnit } from '../constants/metrics';
-import { UploadStatus } from '@/UploadingSystem/constants/uploadConstants';
+import { UploadStatus } from '@/constants/uploadConstants';
 
 interface UploadMetric {
   metadata?: {
