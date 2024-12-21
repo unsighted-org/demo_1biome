@@ -4,7 +4,7 @@ import { debounce } from 'lodash';
 import dynamic from 'next/dynamic';
 import React, { useState, useCallback, useMemo } from 'react';
 
-import { useHealth } from '@/services/HealthContext';
+import { useHealth } from '@/contexts/HealthContext';
 
 import GlobeErrorBoundary from './GlobeErrorBoundary';
 

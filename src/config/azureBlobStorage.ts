@@ -1,38 +1,26 @@
-import { BlobServiceClient, StorageSharedKeyCredential, generateBlobSASQueryParameters, BlobSASPermissions } from "@azure/storage-blob";
+import { BlobServiceClient } from "@azure/storage-blob";
 import dotenv from "dotenv";
+
 import type { ContainerClient } from "@azure/storage-blob";
 
 dotenv.config();
-
-export const azureStorageConfig = {
-  accountName: process.env.AZURE_BLOB_ACCOUNT_NAME || '',
-  accountKey: process.env.AZURE_BLOB_ACCOUNT_KEY || '',
-  containerName: process.env.AZURE_BLOB_CONTAINER_NAME || '',
-};
-
-export function generateSasToken(accountName: string, accountKey: string, containerName: string): string {
-  const sharedKeyCredential = new StorageSharedKeyCredential(accountName, accountKey);
-
-  const sasToken = generateBlobSASQueryParameters({
-    containerName: containerName,
-    permissions: BlobSASPermissions.parse("r"),
-    expiresOn: new Date(new Date().valueOf() + 3600 * 1000), // Token expires in 1 hour
-  }, sharedKeyCredential).toString();
-
-  return sasToken;
-}
 
 class AzureBlobStorage {
   private blobServiceClient: BlobServiceClient;
   private containerClient: ContainerClient;
 
-  constructor() {
-    const sharedKeyCredential = new StorageSharedKeyCredential(azureStorageConfig.accountName, azureStorageConfig.accountKey);
-    this.blobServiceClient = new BlobServiceClient(
-      `https://${azureStorageConfig.accountName}.blob.core.windows.net`,
-      sharedKeyCredential
-    );
-    this.containerClient = this.blobServiceClient.getContainerClient(azureStorageConfig.containerName);
+  constructor(connectionString: string, containerName: string) {
+    this.blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
+    const sanitizedContainerName = this.sanitizeContainerName(containerName);
+    this.containerClient = this.blobServiceClient.getContainerClient(sanitizedContainerName);
+  }
+
+  private sanitizeContainerName(containerName: string): string {
+    const sanitized = containerName.toLowerCase().replace(/[^a-z0-9-]/g, '');
+    if (sanitized.length < 3 || sanitized.length > 63) {
+      throw new Error("Container name must be between 3 and 63 characters after sanitization");
+    }
+    return sanitized;
   }
 
   async createContainer(): Promise<void> {

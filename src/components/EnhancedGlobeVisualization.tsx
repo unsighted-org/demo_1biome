@@ -5,7 +5,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 
 
 import { initializeGeoData, getRegionInfo, findNearestHealthDataPoint, geoDistance } from '@/lib/helpers';
-import { useHealth } from '@/services/HealthContext';
+import { useHealth } from '@/contexts/HealthContext';
 
 import DynamicEarthTexture from './DynamicEarthTexture';
 import Globe from './Globe';
