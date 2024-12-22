@@ -1,132 +1,86 @@
-
+import React from 'react';
 import { Menu as MenuIcon, Close as CloseIcon, Dashboard, Person, Settings, Public } from '@mui/icons-material';
-import { AppBar, Box, Container, Toolbar, Typography, useTheme, useMediaQuery, Drawer, IconButton, List, ListItem, ListItemText, ListItemIcon } from '@mui/material';
+import { AppBar, Container, Toolbar, Typography, useTheme, useMediaQuery, Drawer, IconButton, List, ListItem, ListItemText, ListItemIcon } from '@mui/material';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
-
 import { useAuth } from '@/contexts/AuthContext';
-import { useRoutes } from '@/hooks/useRoutes';
+import { routes } from '@/routes';
+import type { NavItem } from '@/types';
 
-import Navigation from './Navigation';
-
-import type { NavItem, AppRoutes } from '@/types';
-
-interface LayoutProps {
-  children: React.ReactNode;
-}
-
-const Layout: React.FC<LayoutProps> = ({ children }) => {
+const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const router = useRouter();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const { loading, user } = useAuth();
-  const { routes } = useRoutes();
+  const [mobileOpen, setMobileOpen] = React.useState(false);
+  const { user } = useAuth();
+  const isLoginPage = router.pathname === routes.login;
+  const isSplashPage = router.pathname === routes.splashPage;
+  const isHomePage = router.pathname === routes.home;
 
-  const isLoginPage = router.pathname === '/login';
-  const isSplashPage = router.pathname === '/splashPage';
-  const isHomePage = router.pathname === '/';
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen);
+  };
 
-  const handleDrawerToggle = useCallback(() => {
-    setMobileOpen((prevMobileOpen) => !prevMobileOpen);
-  }, [setMobileOpen]);
+  const navItems: NavItem[] = [
+    { label: 'Dashboard', route: 'main', icon: <Dashboard /> },
+    { label: 'Profile', route: 'profile', icon: <Person /> },
+    { label: 'Settings', route: 'settings', icon: <Settings /> },
+    { label: 'Globe', route: 'globescreen', icon: <Public /> },
+  ];
 
-  const drawer = useMemo(() => {
-    const navItems: NavItem[] = [
-      { route: 'main', label: 'Main', icon: <Dashboard /> },
-      { route: 'profile', label: 'Profile', icon: <Person /> },
-      { route: 'settings', label: 'Settings', icon: <Settings /> },
-      { route: 'globescreen', label: 'Globe', icon: <Public /> },
-      { route: 'stats', label: 'Stats', icon: <Settings /> },
-    ];
-
-    if (!user) {
-      navItems.push({ route: 'splashPage', label: 'Join Waitlist', icon: <Person /> });
-    } else if (isLoginPage) {
-      navItems.push({ route: 'login', label: 'Login', icon: <Person /> });
-    }
+  const drawer = React.useMemo(() => {
+    const handleItemClick = (e: React.MouseEvent<HTMLDivElement>) => {
+      handleDrawerToggle();
+      e.stopPropagation();
+    };
 
     return (
-      <Box onClick={handleDrawerToggle} sx={{ textAlign: 'center' }}>
-        <Typography variant="h6" sx={{ my: 2, fontWeight: 'bold', color: theme.palette.primary.main }}>
+      <div className="drawer" onClick={handleItemClick}>
+        <Typography variant="h6" className="drawer-title">
           1Biome
         </Typography>
         <List>
           {navItems.map((item) => (
-            <ListItem
-              button
-              key={item.route}
-              component={Link}
-              href={routes[item.route as keyof AppRoutes]}
-              onClick={handleDrawerToggle}
-            >
-              <ListItemIcon>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.label} />
-            </ListItem>
+            <Link href={routes[item.route]} passHref>
+              <ListItem
+                component="button"
+                key={item.route}
+                className="drawer-item"
+              >
+                <ListItemIcon>{item.icon}</ListItemIcon>
+                <ListItemText primary={item.label} />
+              </ListItem>
+            </Link>
           ))}
         </List>
-      </Box>
+      </div>
     );
-  }, [theme.palette.primary.main, handleDrawerToggle, routes, user, isLoginPage]);
-
-  useEffect(() => {
-    // Add any side effects or subscriptions here
-    // For example, you can fetch data or subscribe to events
-    // Remember to clean up any resources in the cleanup function
-    return () => {
-      // Cleanup function
-    };
-  }, []);
+  }, [navItems]);
 
   const showNavigation = !isLoginPage && !isSplashPage && !isHomePage && user;
 
-   return (
-    <Box 
-      sx={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        minHeight: '100vh',
-        ...(isLoginPage || isSplashPage ? {
-          '&::before': {
-            content: '""',
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundImage: 'url("/night-sky.png")',
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
-            zIndex: -1,
-          }
-        } : {})
-      }}
-    >
+  return (
+    <div className={isLoginPage || isSplashPage ? 'layout-with-background' : 'layout-container'}>
       {showNavigation && (
-        <AppBar position="static" elevation={0} sx={{ backgroundColor: 'rgba(250, 243, 224, 0)' }}>
-          <Toolbar sx={{ justifyContent: 'space-between' }}>
-            <Typography variant="h6" component="div" sx={{ fontWeight: 'bold', color: theme.palette.primary.main }}>
+        <AppBar position="static" elevation={0} className="app-bar">
+          <Toolbar className="toolbar">
+            <Typography variant="h6" component="div" className="app-bar-title">
               1Biome
             </Typography>
-            {isMobile ? (
+            {isMobile && (
               <IconButton
-                color="inherit"
                 aria-label="open drawer"
                 edge="start"
                 onClick={handleDrawerToggle}
-                sx={{ mr: 2, display: { sm: 'none' } }}
+                className="menu-button"
               >
                 {mobileOpen ? <CloseIcon /> : <MenuIcon />}
               </IconButton>
-            ) : (
-              <Navigation />
             )}
           </Toolbar>
         </AppBar>
       )}
-      <Box component="nav">
+      <nav className="nav">
         <Drawer
           variant="temporary"
           open={mobileOpen}
@@ -134,37 +88,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           ModalProps={{
             keepMounted: true,
           }}
-          sx={{
-            display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: 240 },
-          }}
+          className="drawer-mobile"
         >
           {drawer}
         </Drawer>
-      </Box>
+      </nav>
       <Container
         component="main"
         maxWidth={false}
         disableGutters
-        sx={{
-          flex: 1,
-          py: 4,
-          px: 2,
-          ...(isLoginPage || isSplashPage ? {
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            minHeight: '100vh',
-            width: '100%',
-            margin: 0,
-            padding: 0,
-            overflow: 'hidden',
-          } : {}),
-        }}
+        className={`main-container ${isLoginPage ? 'login-page' : ''} ${isSplashPage ? 'splash-page' : ''}`}
       >
         {children}
       </Container>
-    </Box>
+    </div>
   );
 };
 
