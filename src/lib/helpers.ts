@@ -45,160 +45,164 @@ function getGridKey(lat: number, lon: number): string {
 
 // Async function to get a value from Redis
 async function redisGet(key: string): Promise<string | null> {
-  const response = await fetch('/api/redis', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'get', key }),
-  });
-  const data = await response.json();
-  return data.value;
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || window.location.origin;
+    const response = await fetch(`${baseUrl}/api/redis`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'get', key }),
+    });
+    
+    if (!response.ok) {
+      console.error('Redis get error:', response.statusText);
+      return null;
+    }
+    
+    const data = await response.json();
+    return data.value;
+  } catch (error) {
+    console.error('Redis get error:', error);
+    return null;
+  }
 }
 
 // Async function to set a value in Redis
 async function redisSet(key: string, value: string, expiryTime?: number): Promise<void> {
-  await fetch('/api/redis', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'set', key, value, expiryTime }),
-  });
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || window.location.origin;
+    const response = await fetch(`${baseUrl}/api/redis`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'set', key, value, expiryTime }),
+    });
+    
+    if (!response.ok) {
+      console.error('Redis set error:', response.statusText);
+    }
+  } catch (error) {
+    console.error('Redis set error:', error);
+  }
 }
 
 // Initialize geographical data for countries and cities
 export async function initializeGeoData(): Promise<void> {
   if (countriesIndex && citiesIndex) return;
 
-  const cachedData = await redisGet('cachedGeoData');
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || window.location.origin;
+    const cachedData = await redisGet('cachedGeoData');
 
-  if (cachedData) {
-    const parsedData = JSON.parse(cachedData);
-    countriesIndex = new RBush<SpatialItem>();
-    citiesIndex = new RBush<SpatialItem>();
-    countriesIndex.load(parsedData.countries);
-    citiesIndex.load(parsedData.cities);
-  } else {
-    const response = await fetch('/api/geo/countries');
-    const geoData: FeatureCollection = await response.json();
-
-    countriesIndex = new RBush<SpatialItem>();
-    citiesIndex = new RBush<SpatialItem>();
-
-    const countryItems: SpatialItem[] = [];
-    const cityItems: SpatialItem[] = [];
-
-    geoData.features.forEach(feature => {
-      const bbox = getBoundingBox(feature.geometry);
-      
-      // Add country to countriesIndex
-      countryItems.push({
-        minX: bbox[0],
-        minY: bbox[1],
-        maxX: bbox[2],
-        maxY: bbox[3],
-        feature: feature
+    if (cachedData) {
+      const parsedData = JSON.parse(cachedData);
+      countriesIndex = new RBush<SpatialItem>();
+      citiesIndex = new RBush<SpatialItem>();
+      countriesIndex.load(parsedData.countries);
+      citiesIndex.load(parsedData.cities);
+    } else {
+      const response = await fetch(`${baseUrl}/api/geo/countries`, {
+        headers: {
+          'Accept-Encoding': 'gzip, deflate',
+          'Cache-Control': 'no-cache'
+        }
       });
 
-      // Use country centroid as a "city" for citiesIndex
-      if (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon') {
-        const centroid = calculateCentroid(feature.geometry);
-        cityItems.push({
-          minX: centroid[0],
-          minY: centroid[1],
-          maxX: centroid[0],
-          maxY: centroid[1],
-          feature: {
-            type: 'Feature',
-            geometry: {
-              type: 'Point',
-              coordinates: centroid
-            },
-            properties: {
-              name: feature.properties?.name || 'Unknown',
-              country: feature.properties?.name || 'Unknown'
-            }
+      if (!response.ok) {
+        throw new Error(`Failed to fetch geo data: ${response.statusText}`);
+      }
+
+      const geoData: FeatureCollection = await response.json();
+
+      countriesIndex = new RBush<SpatialItem>();
+      citiesIndex = new RBush<SpatialItem>();
+
+      const countryItems: SpatialItem[] = [];
+      const cityItems: SpatialItem[] = [];
+
+      // Process data in chunks to avoid memory issues
+      const CHUNK_SIZE = 100;
+      for (let i = 0; i < geoData.features.length; i += CHUNK_SIZE) {
+        const chunk = geoData.features.slice(i, i + CHUNK_SIZE);
+        
+        chunk.forEach(feature => {
+          const bbox = getBoundingBox(feature.geometry);
+          if (feature.properties?.type === 'country') {
+            countryItems.push({
+              minX: bbox[0],
+              minY: bbox[1],
+              maxX: bbox[2],
+              maxY: bbox[3],
+              feature
+            });
+          } else if (feature.properties?.type === 'city') {
+            cityItems.push({
+              minX: bbox[0],
+              minY: bbox[1],
+              maxX: bbox[2],
+              maxY: bbox[3],
+              feature
+            });
           }
         });
+
+        // Bulk insert chunks
+        if (countryItems.length > 0) {
+          countriesIndex.load(countryItems);
+          countryItems.length = 0;
+        }
+        if (cityItems.length > 0) {
+          citiesIndex.load(cityItems);
+          cityItems.length = 0;
+        }
       }
-    });
 
-    countriesIndex.load(countryItems);
-    citiesIndex.load(cityItems);
-
-    // Cache the processed data
-    await redisSet('cachedGeoData', JSON.stringify({ countries: countryItems, cities: cityItems }), CACHE_EXPIRY);
+      // Cache the processed data
+      const cacheData = {
+        countries: countriesIndex.toJSON(),
+        cities: citiesIndex.toJSON(),
+        timestamp: Date.now()
+      };
+      await redisSet('cachedGeoData', JSON.stringify(cacheData), 86400); // Cache for 24 hours
+    }
+  } catch (error) {
+    console.error('Error initializing geo data:', error);
+    throw error;
   }
 }
 
-// Helper function to calculate centroid of a polygon or multipolygon
-function calculateCentroid(geometry: GeoJSON.Geometry): [number, number] {
-  let totalArea = 0;
-  let centerX = 0;
-  let centerY = 0;
-
-  function processPolygon(coordinates: number[][][]): void {
-    coordinates[0].forEach((coord, index) => {
-      if (index === coordinates[0].length - 1) return;
-      const nextCoord = coordinates[0][index + 1];
-      const area = (coord[0] * nextCoord[1] - nextCoord[0] * coord[1]) / 2;
-      totalArea += area;
-      centerX += (coord[0] + nextCoord[0]) * area / 3;
-      centerY += (coord[1] + nextCoord[1]) * area / 3;
-    });
-  }
-
-  if (geometry.type === 'Polygon') {
-    processPolygon(geometry.coordinates);
-  } else if (geometry.type === 'MultiPolygon') {
-    geometry.coordinates.forEach(polygon => processPolygon(polygon));
-  }
-
-  return [centerX / totalArea, centerY / totalArea];
-}
 // Function to get region information based on latitude and longitude
-export async function getRegionInfo(lat: number, lon: number): Promise<{ country: string; state: string; city: string; continent: string }> {
-  if (!countriesIndex || !citiesIndex) {
+export async function getRegionInfo(lat: number, lon: number): Promise<{ 
+  country: string; 
+  state: string; 
+  city: string; 
+  continent: string;
+}> {
+  try {
     await initializeGeoData();
+
+    const point = { minX: lon, minY: lat, maxX: lon, maxY: lat };
+    const countries = countriesIndex?.search(point) || [];
+    const cities = citiesIndex?.search(point) || [];
+
+    const country = countries[0]?.feature.properties?.name || '';
+    const city = cities[0]?.feature.properties?.name || '';
+    const state = cities[0]?.feature.properties?.state || '';
+    const continent = countries[0]?.feature.properties?.continent || '';
+
+    // Cache the result for this location
+    const cacheKey = `location:${lat},${lon}`;
+    const locationData = { country, state, city, continent };
+    await redisSet(cacheKey, JSON.stringify(locationData), 3600); // Cache for 1 hour
+
+    return locationData;
+  } catch (error) {
+    console.error('Error getting region info:', error);
+    return {
+      country: '',
+      state: '',
+      city: '',
+      continent: ''
+    };
   }
-
-  const gridKey = getGridKey(lat, lon);
-  const cachedInfo = await redisGet(gridKey);
-
-  if (cachedInfo) {
-    return JSON.parse(cachedInfo);
-  }
-
-  let country = 'Unknown';
-  let state = 'Unknown';
-  let city = 'Unknown';
-  let continent = 'Unknown';
-
-  const possibleCountries = countriesIndex!.search({ minX: lon, minY: lat, maxX: lon, maxY: lat });
-  for (const item of possibleCountries) {
-    if (geoContains(item.feature, [lon, lat])) {
-      country = item.feature.properties?.name || 'Unknown';
-      continent = item.feature.properties?.continent || 'Unknown';
-      state = item.feature.properties?.state || 'Unknown';
-      break;
-    }
-  }
-
-  const nearestCities = citiesIndex!.search({ minX: lon - 1, minY: lat - 1, maxX: lon + 1, maxY: lat + 1 });
-  let minDistance = Infinity;
-  for (const cityItem of nearestCities) {
-    const [cityLon, cityLat] = (cityItem.feature.geometry as GeoJSON.Point).coordinates;
-    const distance = geoDistance([lon, lat], [cityLon, cityLat]);
-    if (distance < minDistance) {
-      minDistance = distance;
-      city = cityItem.feature.properties?.name || 'Unknown';
-    }
-  }
-
-  // Since we're using country centroids as cities, city and country will be the same
-  city = country;
-
-  const result = { country, state, city, continent };
-  await redisSet(gridKey, JSON.stringify(result), CACHE_EXPIRY);
-
-  return result;
 }
 
 // Function to get location information based on latitude and longitude, debounced
@@ -357,3 +361,28 @@ export const getHealthScoreDescription = (score: number): string => {
 };
 export { geoDistance };
 
+// Helper function to calculate centroid of a polygon or multipolygon
+function calculateCentroid(geometry: GeoJSON.Geometry): [number, number] {
+  let totalArea = 0;
+  let centerX = 0;
+  let centerY = 0;
+
+  function processPolygon(coordinates: number[][][]): void {
+    coordinates[0].forEach((coord, index) => {
+      if (index === coordinates[0].length - 1) return;
+      const nextCoord = coordinates[0][index + 1];
+      const area = (coord[0] * nextCoord[1] - nextCoord[0] * coord[1]) / 2;
+      totalArea += area;
+      centerX += (coord[0] + nextCoord[0]) * area / 3;
+      centerY += (coord[1] + nextCoord[1]) * area / 3;
+    });
+  }
+
+  if (geometry.type === 'Polygon') {
+    processPolygon(geometry.coordinates);
+  } else if (geometry.type === 'MultiPolygon') {
+    geometry.coordinates.forEach(polygon => processPolygon(polygon));
+  }
+
+  return [centerX / totalArea, centerY / totalArea];
+}

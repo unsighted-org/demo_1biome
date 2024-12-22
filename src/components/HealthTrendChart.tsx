@@ -1,6 +1,7 @@
 import {
   Button, FormControl, InputLabel, Select, MenuItem, Card, CardContent,
-  CardHeader, Typography, useMediaQuery, useTheme, Popover, TextField, CircularProgress
+  CardHeader, Typography, useMediaQuery, useTheme, Popover, TextField, CircularProgress,
+  Box, SxProps, Theme
 } from '@mui/material';
 import { format } from 'date-fns';
 import React, { useState, useMemo, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react';
@@ -12,6 +13,8 @@ import { formatDate, getHealthScoreDescription } from '@/lib/helpers';
 import { useHealth } from '@/contexts/HealthContext';
 import { useLoadingTimeout } from '@/hooks/useLoadingTimeout';
 import { LoadingTimeoutError } from '@/components/LoadingTimeoutError';
+import { useChartOptimization } from '@/hooks/useChartOptimization';
+import { optimizationManager } from '@/utils/optimizationManager';
 
 import type { HealthEnvironmentData, HealthMetric } from '@/types';
 import type { SelectChangeEvent } from '@mui/material';
@@ -28,8 +31,8 @@ const HealthTrendChart = forwardRef<HealthTrendChartRef, HealthTrendChartProps>(
   const { healthData, fetchHealthData, loading: healthLoading } = useHealth();
   const [selectedMetrics, setSelectedMetrics] = useState<HealthMetric[]>(['cardioHealthScore', 'respiratoryHealthScore']);
   const [chartType, setChartType] = useState<'line' | 'area' | 'correlation'>('line');
-  const [startDate, setStartDate] = useState<Date | null>(null);
-  const [endDate, setEndDate] = useState<Date | null>(null);
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
   const [refAreaLeft, setRefAreaLeft] = useState<string>('');
   const [refAreaRight, setRefAreaRight] = useState<string>('');
@@ -41,29 +44,39 @@ const HealthTrendChart = forwardRef<HealthTrendChartRef, HealthTrendChartProps>(
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
 
-  const getResponsiveLabel = useCallback((value: number) => {
-  const label = getHealthScoreDescription(value);
-  if (isMobile) {
-    // Use abbreviations on mobile
-    return label.substring(0, 1);
-  } else if (isTablet) {
-    // Use short forms on tablets
-    return label.substring(0, 3);
-  }
-  return label;
-}, [isMobile, isTablet]);
+  const { data: optimizedData, loading: chartLoading, error: chartError, progress } = useChartOptimization(
+    healthData,
+    selectedMetrics,
+    startDate,
+    endDate,
+    {
+      windowSize: 100,
+      maxPoints: 1000,
+      aggregationInterval: 50,
+      onProgress: (p) => {
+        optimizationManager.recordProgress('chart_loading', p);
+      }
+    }
+  );
 
-const CustomYAxisTick = useCallback(({ x, y, payload }: any) => {
-  return (
+  const getResponsiveLabel = useCallback((value: number) => {
+    const label = getHealthScoreDescription(value);
+    if (isMobile) {
+      return label.substring(0, 1);
+    } else if (isTablet) {
+      return label.substring(0, 3);
+    }
+    return label;
+  }, [isMobile, isTablet]);
+
+  const CustomYAxisTick = useCallback(({ x, y, payload }: any) => (
     <g transform={`translate(${x},${y})`}>
       <text x={0} y={0} dy={16} textAnchor="end" fill="#666" transform="rotate(-35)">
-        {getResponsiveLabel(payload.value)}
+        {payload.value}
       </text>
     </g>
-  );
-}, [getResponsiveLabel]);
+  ), []);
 
-    // Calculate responsive font sizes
   const titleFontSize = useMemo(() => {
     if (isMobile) return 'clamp(1rem, 4vw, 1.25rem)';
     if (isTablet) return 'clamp(1.25rem, 3vw, 1.5rem)';
@@ -99,28 +112,10 @@ const CustomYAxisTick = useCallback(({ x, y, payload }: any) => {
     );
   }, []);
 
-  const filteredData = useMemo(() => {
-    return healthData.filter(data => {
-      const dataDate = new Date(data.timestamp);
-      return (!startDate || dataDate >= startDate) && (!endDate || dataDate <= endDate);
-    });
-  }, [healthData, startDate, endDate]);
-
-  const transformedData = useMemo(() => {
-    return filteredData.map(data => {
-      const transformed: { timestamp: string } & Record<HealthMetric, number> = { timestamp: data.timestamp, cardioHealthScore: 0, respiratoryHealthScore: 0, physicalActivityScore: 0, environmentalImpactScore: 0 };
-      selectedMetrics.forEach(metric => {
-        transformed[metric] = data[metric];
-      });
-      return transformed;
-    });
-  }, [filteredData, selectedMetrics]);
-
   const [chartKey, setChartKey] = useState(0);
   
   useEffect(() => {
     const handleResize = (): void => {
-      // Force a re-render of the chart
       setChartKey(prevKey => prevKey + 1);
     };
   
@@ -129,8 +124,8 @@ const CustomYAxisTick = useCallback(({ x, y, payload }: any) => {
   }, []);
   
   useEffect(() => {
-    onDataUpdate(filteredData, selectedMetrics);
-  }, [filteredData, selectedMetrics, onDataUpdate]);
+    onDataUpdate(optimizedData, selectedMetrics);
+  }, [optimizedData, selectedMetrics, onDataUpdate]);
 
   useImperativeHandle(ref, () => ({
     refreshData: async () => {
@@ -151,20 +146,24 @@ const CustomYAxisTick = useCallback(({ x, y, payload }: any) => {
   }, []);
 
   const handleDateRangeSubmit = useCallback(() => {
-    try {
-      const newStartDate = new Date(startDateInput);
-      const newEndDate = new Date(endDateInput);
-      if (newStartDate > newEndDate) {
-        throw new Error('Start date must be before end date');
-      }
-      setStartDate(newStartDate);
-      setEndDate(newEndDate);
-      handleDateRangeClose();
-    } catch (error) {
-      console.error('Error setting date range:', error);
-      // Handle error (e.g., show error message to user)
+    if (startDateInput && endDateInput) {
+      setStartDate(new Date(startDateInput));
+      setEndDate(new Date(endDateInput));
+    } else {
+      setStartDate(undefined);
+      setEndDate(undefined);
     }
-  }, [startDateInput, endDateInput, handleDateRangeClose]);
+    setAnchorEl(null);
+  }, [startDateInput, endDateInput]);
+
+  useEffect(() => {
+    if (startDate) {
+      setStartDateInput(format(startDate, 'yyyy-MM-dd'));
+    }
+    if (endDate) {
+      setEndDateInput(format(endDate, 'yyyy-MM-dd'));
+    }
+  }, [startDate, endDate]);
 
   const zoom = useCallback(() => {
     if (refAreaLeft === refAreaRight || refAreaRight === '') {
@@ -179,11 +178,7 @@ const CustomYAxisTick = useCallback(({ x, y, payload }: any) => {
     setEndDate(new Date(rightTimestamp));
     setRefAreaLeft('');
     setRefAreaRight('');
-
-    // Update zoom level in HealthContext
-    const zoomLevel = healthData.length / filteredData.length;
-    // setZoom(zoomLevel);
-  }, [refAreaLeft, refAreaRight, healthData.length, filteredData.length]);
+  }, [refAreaLeft, refAreaRight]);
 
   const zoomOut = useCallback(() => {
     if (healthData.length > 0) {
@@ -192,246 +187,238 @@ const CustomYAxisTick = useCallback(({ x, y, payload }: any) => {
     }
     setRefAreaLeft('');
     setRefAreaRight('');
-    // setZoom(1); // Reset zoom level in HealthContext
   }, [healthData]);
 
   const getLineColor = useCallback((metric: HealthMetric): string => {
-    const latestData = filteredData[filteredData.length - 1];
+    const latestData = optimizedData[optimizedData.length - 1];
     if (latestData) {
       return getColorForMetric(metric, latestData[metric]);
     }
     return getMetricColor(metric);
-  }, [filteredData]);
+  }, [optimizedData]);
 
   const renderChart = useMemo(() => {
-  switch (chartType) {
-    case 'line':
-      return (
-        <LineChart
-          data={transformedData}
-          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-          onMouseDown={(e) => e && e.activeLabel && setRefAreaLeft(e.activeLabel.toString())}
-          onMouseMove={(e) => e && refAreaLeft && e.activeLabel && setRefAreaRight(e.activeLabel.toString())}
-          onMouseUp={zoom}
-        >
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis
-            dataKey="timestamp"
-            tickFormatter={(timestamp) => formatDate(new Date(timestamp).toISOString())}
-            type="number"
-            scale="time"
-            domain={['dataMin', 'dataMax']}
-          />
-          <YAxis 
-            tickFormatter={getResponsiveLabel} 
-            tick={<CustomYAxisTick />}
-          />
-          <Tooltip
-            contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.8)', borderRadius: '8px' }}
-            labelFormatter={(timestamp) => formatDate(new Date(timestamp).toISOString())}
-            formatter={(value, name) => [`${value} (${getHealthScoreDescription(Number(value))})`, name]}
-          />
-          <Legend />
-          {selectedMetrics.map((metric) => (
-            <Line
-              key={metric}
-              type="monotone"
-              dataKey={metric}
-              stroke={getLineColor(metric)}
-              strokeWidth={2}
-              dot={{ r: 4 }}
-              activeDot={{ r: 8 }}
+    switch (chartType) {
+      case 'line':
+        return (
+          <LineChart
+            data={optimizedData}
+            onMouseDown={e => e?.activeLabel && setRefAreaLeft(e.activeLabel)}
+            onMouseMove={e => e?.activeLabel && refAreaLeft && setRefAreaRight(e.activeLabel)}
+            onMouseUp={zoom}
+          >
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis
+              dataKey="timestamp"
+              tickFormatter={(timestamp: string) => formatDate(timestamp)}
+              height={60}
+              tick={CustomYAxisTick}
             />
-          ))}
-          {refAreaLeft && refAreaRight && (
-            <ReferenceArea x1={refAreaLeft} x2={refAreaRight} strokeOpacity={0.3} />
-          )}
-        </LineChart>
-      );
-    case 'area':
-      return (
-        <AreaChart
-          data={transformedData}
-          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-          onMouseDown={(e) => e && e.activeLabel && setRefAreaLeft(e.activeLabel.toString())}
-          onMouseMove={(e) => e && refAreaLeft && e.activeLabel && setRefAreaRight(e.activeLabel.toString())}
-          onMouseUp={zoom}
-        >
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis
-            dataKey="timestamp"
-            tickFormatter={(timestamp) => formatDate(new Date(timestamp).toISOString())}
-            type="number"
-            scale="time"
-            domain={['dataMin', 'dataMax']}
-          />
-          <YAxis 
-            tickFormatter={getResponsiveLabel} 
-            tick={<CustomYAxisTick />}
-          />
-          <Tooltip
-            contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.8)', borderRadius: '8px' }}
-            labelFormatter={(timestamp) => formatDate(new Date(timestamp).toISOString())}
-            formatter={(value, name) => [`${value} (${getHealthScoreDescription(Number(value))})`, name]}
-          />
-          <Legend />
-          {selectedMetrics.map((metric) => (
-            <Area
-              key={metric}
-              type="monotone"
-              dataKey={metric}
-              stroke={getLineColor(metric)}
-              fillOpacity={0.3}
-              fill={getLineColor(metric)}
+            <YAxis tickFormatter={getResponsiveLabel} tick={CustomYAxisTick} />
+            <Tooltip
+              labelFormatter={(timestamp: string) => formatDate(timestamp)}
+              formatter={(value: number, name: string) => [
+                `${value.toFixed(2)}`,
+                name.replace(/([A-Z])/g, ' $1').trim()
+              ]}
             />
-          ))}
-          {refAreaLeft && refAreaRight && (
-            <ReferenceArea x1={refAreaLeft} x2={refAreaRight} strokeOpacity={0.3} />
-          )}
-        </AreaChart>
-      );
-    case 'correlation':
-      // Placeholder for correlation chart - needs implementation based on specific requirements
-      return (
-        <Typography>Correlation chart is under development.</Typography>
-      );
-    default:
-      return null;
-  }
-}, [chartType, transformedData, selectedMetrics, refAreaLeft, refAreaRight, zoom, getLineColor, getResponsiveLabel, CustomYAxisTick]);
+            <Legend />
+            {selectedMetrics.map(metric => (
+              <Line
+                key={metric}
+                type="monotone"
+                dataKey={metric}
+                stroke={getLineColor(metric)}
+                dot={false}
+                strokeWidth={2}
+              />
+            ))}
+            {refAreaLeft && refAreaRight && (
+              <ReferenceArea
+                x1={refAreaLeft}
+                x2={refAreaRight}
+                strokeOpacity={0.3}
+                fill="rgba(255, 255, 255, 0.1)"
+              />
+            )}
+          </LineChart>
+        );
+      case 'area':
+        return (
+          <AreaChart data={optimizedData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis
+              dataKey="timestamp"
+              tickFormatter={(timestamp: string) => formatDate(timestamp)}
+              height={60}
+              tick={CustomYAxisTick}
+            />
+            <YAxis tickFormatter={getResponsiveLabel} tick={CustomYAxisTick} />
+            <Tooltip
+              labelFormatter={(timestamp: string) => formatDate(timestamp)}
+              formatter={(value: number, name: string) => [
+                `${value.toFixed(2)}`,
+                name.replace(/([A-Z])/g, ' $1').trim()
+              ]}
+            />
+            <Legend />
+            {selectedMetrics.map(metric => (
+              <Area
+                key={metric}
+                type="monotone"
+                dataKey={metric}
+                stroke={getLineColor(metric)}
+                fill={getLineColor(metric)}
+                fillOpacity={0.1}
+              />
+            ))}
+          </AreaChart>
+        );
+      default:
+        return <div>No chart type selected</div>;
+    }
+  }, [chartType, optimizedData, selectedMetrics, refAreaLeft, refAreaRight, zoom, getLineColor, getResponsiveLabel, CustomYAxisTick]);
 
   const hasTimedOut = useLoadingTimeout({ 
-    isLoading: loading || healthLoading,
-    timeoutMs: 12000 // 12 seconds for complex chart data
+    isLoading: loading || healthLoading || chartLoading,
+    timeoutMs: 12000
   });
 
+  const buttonStyle: React.CSSProperties = {
+    fontSize: buttonFontSize
+  };
+
+  const loadingContainerStyle: React.CSSProperties = {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: '100%'
+  };
+
+  const chartContainerStyle: React.CSSProperties = {
+    width: '100%',
+    height: 400
+  };
+
+  const buttonContainerStyle: React.CSSProperties = {
+    display: 'flex',
+    gap: '8px',
+    marginBottom: '16px'
+  };
+
   if (hasTimedOut) {
+    return <LoadingTimeoutError onRetry={() => fetchHealthData(1)} />;
+  }
+
+  if (chartError) {
     return (
-      <LoadingTimeoutError 
-        message="Chart data is taking longer than expected to load." 
-        onRetry={() => {
-          setLoading(false);
-          onDataUpdate([], []);
-        }}
-      />
+      <Typography color="error">
+        Error loading chart data: {chartError.message}
+      </Typography>
     );
   }
 
-  if (loading || healthLoading) {
-    return <CircularProgress />;
-  }
-
-  if (!healthData || healthData.length === 0) {
-    return <Typography>No health data available</Typography>;
-  }
-
   return (
-  <Card className="health-trend-card">
-    <CardHeader 
-      title={
-        <Typography variant="h6" style={{ fontSize: titleFontSize }}>
-          Health Trends
-        </Typography>
-      } 
-    />
-    <CardContent className="health-trend-content">
-      <div className="chart-controls">
-        <FormControl variant="outlined" size="small">
-          <InputLabel id="chart-type-label">Chart Type</InputLabel>
+    <Card>
+      <CardHeader
+        title={
+          <Typography variant="h6" style={{ fontSize: titleFontSize }}>
+            Health Trends
+          </Typography>
+        }
+        action={
+          <>
+            <Button
+              onClick={handleDateRangeClick}
+              startIcon={<FaCalendarAlt />}
+              style={buttonStyle}
+            >
+              Date Range
+            </Button>
+            <Button
+              onClick={zoomOut}
+              disabled={!refAreaLeft && !refAreaRight}
+              style={buttonStyle}
+            >
+              Reset Zoom
+            </Button>
+          </>
+        }
+      />
+      <CardContent>
+        <FormControl fullWidth variant="outlined" sx={{ mb: 2 } as SxProps<Theme>}>
+          <InputLabel>Chart Type</InputLabel>
           <Select
-            labelId="chart-type-label"
             value={chartType}
-            onChange={(event: SelectChangeEvent<'line' | 'area' | 'correlation'>) => setChartType(event.target.value as 'line' | 'area' | 'correlation')}
+            onChange={(e) => setChartType(e.target.value as typeof chartType)}
             label="Chart Type"
           >
-            <MenuItem value="line">Line</MenuItem>
-            <MenuItem value="area">Area</MenuItem>
-            <MenuItem value="correlation">Correlation</MenuItem>
+            <MenuItem value="line">Line Chart</MenuItem>
+            <MenuItem value="area">Area Chart</MenuItem>
           </Select>
         </FormControl>
-        <Button
-          aria-label="Open date range selector"
-          variant="outlined"
-          size="small"
-          onClick={handleDateRangeClick}
-          startIcon={<FaCalendarAlt />}
-          style={{ fontSize: buttonFontSize }}
-        >
-          Date Range
-        </Button>
-      </div>
-      <div className="metric-buttons">
-        {metricOptions.map(({ value, label, icon }) => (
-          <Button
-            key={value}
-            aria-label={`Toggle ${label} metric`}
-            variant={selectedMetrics.includes(value) ? 'contained' : 'outlined'}
-            color={selectedMetrics.includes(value) ? 'primary' : 'inherit'}
-            size="small"
-            onClick={() => toggleMetric(value)}
-            startIcon={icon}
-            className="metric-button"
-            style={{
-              fontSize: buttonFontSize,
-              minWidth: 'auto',
-              padding: '0 8px',
-              flex: '0 0 auto',
-            }}
-          >
-            {isMobile ? '' : label}
-          </Button>
-        ))}
-      </div>
-      <Typography variant="caption" className="m-2">
-        {filteredData.length} data points
-      </Typography>
-      <Typography variant="caption" className="m-2">
-        {selectedMetrics.length} metrics selected
-      </Typography>
-      <div className="chart-container">
-        <ResponsiveContainer width="100%" height="100%" key={chartKey}>
-          {renderChart !== null ? renderChart : <Typography>No chart data available</Typography>}
-        </ResponsiveContainer>
-      </div>
-      <Button onClick={zoomOut} className="m-3" style={{ fontSize: buttonFontSize }}>
-        Zoom Out
-      </Button>
+        <div style={buttonContainerStyle}>
+          {metricOptions.map(({ value, label, icon }) => (
+            <Button
+              key={value}
+              variant={selectedMetrics.includes(value) ? 'contained' : 'outlined'}
+              onClick={() => toggleMetric(value)}
+              startIcon={icon}
+              style={buttonStyle}
+            >
+              {isMobile ? '' : label}
+            </Button>
+          ))}
+        </div>
+        <div style={chartContainerStyle}>
+          {(loading || healthLoading || chartLoading) ? (
+            <div style={loadingContainerStyle}>
+              <CircularProgress />
+              {progress > 0 && (
+                <Typography variant="caption" sx={{ ml: 1 } as SxProps<Theme>}>
+                  {Math.round(progress * 100)}%
+                </Typography>
+              )}
+            </div>
+          ) : (
+            <ResponsiveContainer key={chartKey}>
+              {renderChart}
+            </ResponsiveContainer>
+          )}
+        </div>
+      </CardContent>
       <Popover
-        id="date-range-popover"
         open={Boolean(anchorEl)}
         anchorEl={anchorEl}
         onClose={handleDateRangeClose}
         anchorOrigin={{
           vertical: 'bottom',
-          horizontal: 'right',
-        }}
-        transformOrigin={{
-          vertical: 'top',
-          horizontal: 'right',
+          horizontal: 'left',
         }}
       >
-        <div className="date-range-popover">
+        <Box component="div" sx={{ p: 2 } as SxProps<Theme>}>
           <TextField
             label="Start Date"
             type="date"
             value={startDateInput}
             onChange={(e) => setStartDateInput(e.target.value)}
-            className="m-2"
+            sx={{ mb: 2 } as SxProps<Theme>}
+            fullWidth
           />
           <TextField
             label="End Date"
             type="date"
             value={endDateInput}
             onChange={(e) => setEndDateInput(e.target.value)}
-            className="m-2"
+            sx={{ mb: 2 } as SxProps<Theme>}
+            fullWidth
           />
-          <Button onClick={handleDateRangeSubmit} className="m-2" style={{ fontSize: buttonFontSize }}>
+          <Button onClick={handleDateRangeSubmit} variant="contained" fullWidth>
             Apply
           </Button>
-        </div>
+        </Box>
       </Popover>
-    </CardContent>
-  </Card>
+    </Card>
   );
 });
 

@@ -317,6 +317,31 @@ export interface ServerHealthEnvironmentData extends
   continent: string;
 }
 
+// Optimization-related interfaces
+export interface OptimizationProgress {
+  category: string;
+  progress: number;
+  timestamp: string;
+}
+
+export interface OptimizationMetric {
+  name: string;
+  value: number;
+  timestamp: string;
+}
+
+export interface DataStreamConfig {
+  batchSize: number;
+  interval: number;
+  maxRetries: number;
+}
+
+export interface ChartDataOptions {
+  windowSize: number;
+  maxPoints: number;
+  aggregationInterval: number;
+}
+
 // Utility functions for date conversion
 export function dateToISOString(date: Date): string {
   return date.toISOString();

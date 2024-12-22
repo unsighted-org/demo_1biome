@@ -5,6 +5,7 @@ import { monitoringManager } from '@/MonitoringSystem/managers/MonitoringManager
 import { IntegrationError } from '@/MonitoringSystem/constants/errors';
 import crypto from 'crypto';
 import { MetricCategory, MetricType, MetricUnit } from '@/MonitoringSystem/constants/metrics';
+import * as zlib from 'zlib';
 
 dotenv.config();
 
@@ -170,6 +171,97 @@ this.client.on('ready', () => {
         operation: 'ping'
       });
       return false;
+    }
+  }
+
+  public async get(key: string): Promise<string | null> {
+    try {
+      if (!this.client) {
+        throw new Error('Redis client not initialized');
+      }
+      const value = await this.client.get(key);
+      return value;
+    } catch (error) {
+      console.error('Redis get error:', error);
+      monitoringManager.metrics.recordMetric(
+        MetricCategory.SYSTEM,
+        'redis',
+        'get_error',
+        1,
+        MetricType.COUNTER,
+        MetricUnit.COUNT,
+        { key }
+      );
+      return null;
+    }
+  }
+
+  public async set(key: string, value: string, expiryTime?: number): Promise<void> {
+    try {
+      if (!this.client) {
+        throw new Error('Redis client not initialized');
+      }
+      if (expiryTime) {
+        await this.client.set(key, value, 'EX', expiryTime);
+      } else {
+        await this.client.set(key, value);
+      }
+      
+      // Record cache size metric
+      const size = Buffer.byteLength(value, 'utf8');
+      monitoringManager.metrics.recordMetric(
+        MetricCategory.SYSTEM,
+        'redis',
+        'cache_size',
+        size,
+        MetricType.GAUGE,
+        MetricUnit.BYTES,
+        { key }
+      );
+    } catch (error) {
+      console.error('Redis set error:', error);
+      monitoringManager.metrics.recordMetric(
+        MetricCategory.SYSTEM,
+        'redis',
+        'set_error',
+        1,
+        MetricType.COUNTER,
+        MetricUnit.COUNT,
+        { key }
+      );
+    }
+  }
+
+  private async compressData(data: string): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      zlib.gzip(data, (error, result) => {
+        if (error) reject(error);
+        else resolve(result);
+      });
+    });
+  }
+
+  private async decompressData(data: Buffer): Promise<string> {
+    return new Promise((resolve, reject) => {
+      zlib.gunzip(data, (error, result) => {
+        if (error) reject(error);
+        else resolve(result.toString());
+      });
+    });
+  }
+
+  public async batchGet(keys: string[]): Promise<(string | null)[]> {
+    try {
+      if (!this.client) {
+        throw new Error('Redis client not initialized');
+      }
+      const pipeline = this.client.pipeline();
+      keys.forEach(key => pipeline.get(key));
+      const results = await pipeline.exec();
+      return results?.map(([err, result]) => err ? null : result as string | null) ?? [];
+    } catch (error) {
+      console.error('Redis batch get error:', error);
+      return new Array(keys.length).fill(null);
     }
   }
 
@@ -373,9 +465,7 @@ const duration = Date.now() - start;
     }
   }
 
-  // Add after deleteValue method and before storeUserToken:
-
-async batchOperation(operations: Array<{ key: string, value: string, expiryTime?: number }>) {
+  async batchOperation(operations: Array<{ key: string, value: string, expiryTime?: number }>) {
   const start = Date.now();
   try {
     await this.ensureConnection();
