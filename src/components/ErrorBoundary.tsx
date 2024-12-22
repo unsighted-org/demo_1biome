@@ -1,11 +1,9 @@
 // src/components/ErrorBoundary.tsx
-import { Box, Typography, Button } from '@mui/material';
+import { Typography, Button } from '@mui/material';
 import React from 'react';
 
-import type { ErrorInfo, ReactNode } from 'react';
-
 interface ErrorBoundaryProps {
-  children: ReactNode;
+  children: React.ReactNode;
   errorMessage?: string;
 }
 
@@ -14,6 +12,8 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  public state: ErrorBoundaryState;
+  
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false };
@@ -23,36 +23,29 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
     return { hasError: true };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
     console.log('ErrorBoundary caught an error:', error, errorInfo);
-    // You can log the error to an error reporting service here
   }
 
-  render(): React.ReactElement<React.ReactNode> {
+  render(): React.ReactNode {
     if (this.state.hasError) {
       return (
-        <Box sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100vh',
-        }}>
-          <Typography variant="h5" color="error" gutterBottom>
-            {this.props.errorMessage || 'Something went wrong.'}
+        <div className="text-center mt-8">
+          <Typography variant="h4">
+            {this.props.errorMessage || 'Something went wrong'}
           </Typography>
-          <Button
-            variant="contained"
+          <Button 
+            onClick={() => window.location.reload()} 
+            variant="contained" 
             color="primary"
-            onClick={() => this.setState({ hasError: false })}
           >
-            Try again
+            Reload
           </Button>
-        </Box>
+        </div>
       );
     }
 
-    return this.props.children as React.ReactElement<React.ReactNode>;
+    return this.props.children;
   }
 }
 
