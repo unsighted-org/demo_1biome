@@ -1,54 +1,82 @@
-import { Refresh, Error } from '@mui/icons-material';
+import React, { useEffect, useCallback, Suspense, useState, useRef } from 'react';
+import dynamic from 'next/dynamic';
+import { useRouter } from 'next/router';
+import { motion, AnimatePresence } from 'framer-motion';
+import { styled } from '@mui/material/styles';
 import {
   CircularProgress,
   Typography,
   Button,
+  Grid,
+  Paper,
+  Box,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableRow,
-  Grid
+  Container,
 } from '@mui/material';
-import dynamic from 'next/dynamic';
-import { useRouter } from 'next/router';
-import React, { useEffect, useCallback, Suspense } from 'react';
-import HealthTrendChart from '@/components/HealthTrendChart';
+import {
+  Refresh,
+  Error,
+  LocationOn,
+  Public
+} from '@mui/icons-material';
+
+import { RenderingPipeline } from '@/lib/renderingPipeline';
+import GlobeControls from '@/components/GlobeControls';
 import { useAuth } from '@/contexts/AuthContext';
-import { useHealth, type HealthContextType} from '@/contexts/HealthContext';
-import { formatDate, calculateBMI, getActivityLevel, getEnvironmentalImpact, getAirQualityDescription } from '@/lib/helpers';
-import notificationService from '@/services/CustomNotificationService';
+import { useHealth } from '@/contexts/HealthContext';
 import { useLoadingTimeout } from '@/hooks/useLoadingTimeout';
 import { LoadingTimeoutError } from '@/components/LoadingTimeoutError';
+import type { LocationInfo } from '@/services/GeocodingService';
+import { HealthTrendChart } from '@/components/HealthTrendChart';
+import notificationService from '@/services/CustomNotificationService';
+import { formatDate, calculateBMI, getActivityLevel, getEnvironmentalImpact, getAirQualityDescription } from '@/lib/helpers';
 
-// Dynamic import with no SSR for the Globe component
+const LocationPanel = styled(motion(Paper))(({ theme }) => ({
+  position: 'absolute',
+  bottom: theme.spacing(2),
+  left: theme.spacing(2),
+  padding: theme.spacing(2),
+  backgroundColor: 'rgba(255, 255, 255, 0.9)',
+  backdropFilter: 'blur(5px)',
+  maxWidth: '300px',
+}));
+
+const LoadingContainer = styled('div')(({ theme }) => ({
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  height: '100%',
+  width: '100%',
+  backgroundColor: theme.palette.background.default
+}));
+
 const AnimatedGlobe = dynamic(
   () => import('@/components/AnimatedGlobe').then(mod => mod.default),
   { 
-    ssr: false,
     loading: () => (
-      <div className="globe-loading-container">
-        <CircularProgress size={40} />
-        <Typography variant="body1" className="loading-text">
-          Loading Globe...
-        </Typography>
-      </div>
-    )
+      <LoadingContainer>
+        <CircularProgress />
+      </LoadingContainer>
+    ),
+    ssr: false
   }
 );
 
-const GlobePage = () => {
-  const { 
-    healthData, 
-    error,
-    loading: healthLoading, 
-    displayMetric,
-    fetchHealthData
-  }: HealthContextType = useHealth();
-  const { user, loading: authLoading } = useAuth();
+export default function GlobePage() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+  const { healthData, error: healthError, loading: healthLoading } = useHealth();
+  const [selectedLocation, setSelectedLocation] = useState<LocationInfo | null>(null);
+  const [error, setError] = useState<Error | null>(null);
   
-  const hasTimedOut = useLoadingTimeout({ 
+  const [currentTexture, setCurrentTexture] = useState<string>('blue-marble');
+  const [rotation, setRotation] = useState({ x: 0, y: 0 });
+
+  const { loading, timedOut } = useLoadingTimeout({
     isLoading: healthLoading || authLoading,
     timeoutMs: 15000
   });
@@ -56,172 +84,146 @@ const GlobePage = () => {
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login');
-    } else if (user) {
-      fetchHealthData().catch(console.error);
-      notificationService.initializeNotifications(user, user.token).catch(console.error);
     }
-  }, [authLoading, user, router, fetchHealthData]);
+  }, [user, authLoading, router]);
 
-  if (!user && !authLoading) {
-    router.push('/login');
-    return null;
+  const handleTextureChange = useCallback(async (texture: string) => {
+    setCurrentTexture(texture);
+  }, []);
+
+  const handleLocationHover = useCallback((location: LocationInfo | null) => {
+    setSelectedLocation(location);
+  }, []);
+
+  if (timedOut) {
+    return <LoadingTimeoutError />;
   }
 
-  if (hasTimedOut) {
+  if (loading) {
     return (
-      <div className="loading-container">
-        <LoadingTimeoutError 
-          message="Loading the health globe is taking longer than expected." 
-          onRetry={() => fetchHealthData()}
-        />
-      </div>
+      <LoadingContainer>
+        <CircularProgress />
+      </LoadingContainer>
     );
   }
 
-  if (authLoading || healthLoading) {
+  if (error || healthError) {
     return (
-      <div className="loading-container">
-        <CircularProgress size={60} />
-        <Typography variant="h6" className="loading-text">
-          {authLoading ? 'Verifying your session...' : 'Loading your health data...'}
-        </Typography>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="error-container">
-        <Error className="error-icon" />
-        <Typography variant="h6" color="error" gutterBottom>
-          {error.toString()}
+      <Container
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "100vh",
+          gap: 2
+        }}
+      >
+        <Error color="error" fontSize="large" />
+        <Typography variant="h6" color="error">
+          {(error || healthError)?.message || 'An error occurred while loading the globe'}
         </Typography>
         <Button
           variant="contained"
-          color="primary"
           startIcon={<Refresh />}
-          className="error-button"
-          onClick={() => fetchHealthData()}
+          onClick={() => window.location.reload()}
         >
           Retry
         </Button>
-      </div>
+      </Container>
     );
   }
 
-  const handleLocationHover = useCallback((location: { name: string; country: string; state: string; continent: string; } | null) => {
-    console.log('Location hover:', location);
-  }, []);
-
   return (
-    <main className="dashboard-container">
-      <div className="dashboard-header">
-        <Typography variant="h4">Your Health Globe</Typography>
-        <Button 
-          variant="contained" 
-          color="primary"
-          onClick={() => fetchHealthData()} 
-          startIcon={<Refresh />}
-        >
-          Refresh Data
-        </Button>
-      </div>
-
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={8}>
-          <div className="globe-container">
-            <Suspense fallback={
-              <div className="globe-loading-container">
-                <CircularProgress size={40} />
-                <Typography variant="body1" className="loading-text">
-                  Loading Globe...
+    <div style={{ position: 'relative', width: '100vw', height: '100vh' }}>
+      <AnimatedGlobe
+        onLocationHover={handleLocationHover}
+        displayMetric="cardioHealthScore"
+      />
+      <GlobeControls
+        currentTexture={currentTexture}
+        onTextureChange={handleTextureChange}
+        rotation={rotation}
+      />
+      <AnimatePresence>
+        {selectedLocation && (
+          <LocationPanel
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+          >
+            <Grid container spacing={1} alignItems="center">
+              <Grid item>
+                <LocationOn color="primary" />
+              </Grid>
+              <Grid item xs>
+                <Typography variant="subtitle1">
+                  {selectedLocation.formattedAddress}
                 </Typography>
-              </div>
-            }>
-              <AnimatedGlobe 
-                onLocationHover={handleLocationHover}
-                displayMetric={displayMetric}
-              />
-            </Suspense>
-            {healthData.length === 0 && (
-              <div className="globe-empty-state">
-                <Typography variant="h6">
-                  No health data available. Start tracking to see your data on the globe!
+              </Grid>
+            </Grid>
+          </LocationPanel>
+        )}
+      </AnimatePresence>
+      {healthData && (
+        <Container sx={{ p: 2 }}>
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={4}>
+              <Paper sx={{ p: 2 }}>
+                <Typography variant="h6" gutterBottom>
+                  Health Trends
                 </Typography>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={() => fetchHealthData()}
-                  className="mt-4"
-                >
-                  Start Tracking
-                </Button>
-              </div>
-            )}
-          </div>
-        </Grid>
-
-        <Grid item xs={12} md={4}>
-          <div className="dashboard-card health-trend-card">
-            <Typography variant="h6" gutterBottom>
-              Health Trends
-            </Typography>
-            {healthData.length === 0 ? (
-              <Typography className="text-secondary">
-                No health data available yet.
-              </Typography>
-            ) : (
-              <HealthTrendChart onDataUpdate={(data, selectedMetrics) => {
-                console.log('Data updated:', data, selectedMetrics);
-              }} />
-            )}
-          </div>
-        </Grid>
-      </Grid>
-
-      <div className="dashboard-card">
-        <Typography variant="h6" gutterBottom>
-          Health Data Summary
-        </Typography>
-        <div className="table-container">
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Date</TableCell>
-                <TableCell>Steps</TableCell>
-                <TableCell>Activity Level</TableCell>
-                <TableCell>Heart Rate</TableCell>
-                <TableCell>BMI</TableCell>
-                <TableCell>Environmental Impact</TableCell>
-                <TableCell>Air Quality</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {healthData.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} align="center">
-                    No health data available
-                  </TableCell>
-                </TableRow>
-              ) : (
-                healthData.map((data: any, index: number) => (
-                  <TableRow key={index}>
-                    <TableCell>{formatDate(data.date)}</TableCell>
-                    <TableCell>{data.steps}</TableCell>
-                    <TableCell>{getActivityLevel(data.activityLevel)}</TableCell>
-                    <TableCell>{data.heartRate}</TableCell>
-                    <TableCell>{calculateBMI(data.height, data.weight)}</TableCell>
-                    <TableCell>{getEnvironmentalImpact(data.environmentalImpact)}</TableCell>
-                    <TableCell>{getAirQualityDescription(data.airQuality)}</TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
-    </main>
+                <HealthTrendChart 
+                  data={healthData}
+                  onDataUpdate={(data, metrics) => {
+                    console.log('Health data updated:', data, metrics);
+                  } } selectedMetric={'steps'}                />
+              </Paper>
+            </Grid>
+            <Grid item xs={12}>
+              <Paper sx={{ p: 2 }}>
+                <Typography variant="h6" gutterBottom>
+                  Health Data Summary
+                </Typography>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Date</TableCell>
+                      <TableCell>Steps</TableCell>
+                      <TableCell>Activity Level</TableCell>
+                      <TableCell>Heart Rate</TableCell>
+                      <TableCell>BMI</TableCell>
+                      <TableCell>Environmental Impact</TableCell>
+                      <TableCell>Air Quality</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {healthData.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} align="center">
+                          No health data available
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      healthData.map((data: any, index: number) => (
+                        <TableRow key={index}>
+                          <TableCell>{formatDate(data.date)}</TableCell>
+                          <TableCell>{data.steps}</TableCell>
+                          <TableCell>{getActivityLevel(data.activityLevel)}</TableCell>
+                          <TableCell>{data.heartRate}</TableCell>
+                          <TableCell>{calculateBMI(data.height, data.weight)}</TableCell>
+                          <TableCell>{getEnvironmentalImpact(data.environmentalImpact)}</TableCell>
+                          <TableCell>{getAirQualityDescription(data.airQuality)}</TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </Paper>
+            </Grid>
+          </Grid>
+        </Container>
+      )}
+    </div>
   );
-};
-
-export default GlobePage;
+}

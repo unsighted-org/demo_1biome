@@ -2,14 +2,16 @@ import mapboxgl from 'mapbox-gl';
 import React, { useRef, useEffect, useState } from 'react';
 
 import type { HealthEnvironmentData, HealthMetric } from '@/types';
+import { mapTileManager } from '@/lib/mapTileManager';
+import type { MapTileOptions } from '@/lib/types';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN as string;
 
 interface GeospatialChartProps {
   data: HealthEnvironmentData[];
-    metric: HealthMetric;
-    center: { latitude: number; longitude: number };
-    zoom: number;
+  metric: HealthMetric;
+  center: { latitude: number; longitude: number };
+  zoom: number;
 }
 
 interface CustomLayerProperties extends mapboxgl.Layer {
@@ -21,11 +23,19 @@ interface CustomLayerProperties extends mapboxgl.Layer {
   render?: (gl: WebGLRenderingContext, _matrix: number[]) => void;
 }
 
+const DEFAULT_TILE_OPTIONS: MapTileOptions = {
+  maxZoom: 18,
+  minZoom: 2,
+  tileSize: 256,
+  attribution: ' OpenStreetMap contributors'
+};
+
 const GeospatialChart: React.FC<GeospatialChartProps> = ({ data, metric, center, zoom }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const [devicePerformance, setDevicePerformance] = useState<'low' | 'medium' | 'high'>('medium');
-
+  const [tileOptions, setTileOptions] = useState<MapTileOptions>(DEFAULT_TILE_OPTIONS);
+  const [opacity, setOpacity] = useState(0);
 
   useEffect(() => {
     const determineDevicePerformance = (): 'low' | 'medium' | 'high' => {
@@ -34,35 +44,150 @@ const GeospatialChart: React.FC<GeospatialChartProps> = ({ data, metric, center,
       if (hardwareConcurrency <= 4) return 'medium';
       return 'high';
     };
-    setDevicePerformance(determineDevicePerformance());
+    
+    const devicePerfLevel = determineDevicePerformance();
+    setDevicePerformance(devicePerfLevel);
+    
+    setTileOptions(prev => ({
+      ...prev,
+      maxZoom: devicePerfLevel === 'low' ? 10 : devicePerfLevel === 'medium' ? 14 : 18
+    }));
+
+    // Start fade-in animation
+    requestAnimationFrame(() => {
+      setOpacity(1);
+    });
 
     if (map.current) return;
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current!,
-      style: 'mapbox://styles/mapbox/dark-v10',
-      center: [0, 0],
-      zoom: 2,
-      maxZoom: 18, // Set a default max zoom
-      attributionControl: false, // We'll add this separately for more control
+      style: {
+        version: 8,
+        sources: {
+          'osm-tiles': {
+            type: 'raster',
+            tiles: [`https://tile.openstreetmap.org/{z}/{x}/{y}.png`],
+            tileSize: tileOptions.tileSize,
+          }
+        },
+        layers: [
+          {
+            id: 'osm-tiles',
+            type: 'raster',
+            source: 'osm-tiles',
+            minzoom: tileOptions.minZoom,
+            maxzoom: tileOptions.maxZoom
+          }
+        ]
+      },
+      center: [center.longitude, center.latitude],
+      zoom: zoom,
+      maxZoom: tileOptions.maxZoom,
+      minZoom: tileOptions.minZoom,
     });
 
-      // Add attribution control
     map.current.addControl(new mapboxgl.AttributionControl({
-        compact: true
+      compact: true,
+      customAttribution: tileOptions.attribution
     }), 'bottom-right');
 
-    // Add navigation control (zoom buttons)
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
+    map.current.on('sourcedataloading', () => {
+      // You could add a loading indicator here
+    });
+
+    map.current.on('sourcedata', (e) => {
+      if (e.isSourceLoaded && e.sourceId === 'osm-tiles') {
+        // Tile loading complete
+      }
+    });
+
+    map.current.on('error', (e) => {
+      console.error('Map error:', e);
+      // Implement fallback or error handling
+    });
 
     map.current.on('load', () => {
       if (!map.current) return;
 
-      // Add custom layer for fluid particle effects
+      map.current.addSource('health-data', {
+        type: 'geojson',
+        data: {
+          type: 'FeatureCollection',
+          features: data.map(point => ({
+            type: 'Feature',
+            geometry: {
+              type: 'Point',
+              coordinates: [point.longitude, point.latitude]
+            },
+            properties: {
+              [metric]: point[metric]
+            }
+          }))
+        },
+        cluster: true,
+        clusterMaxZoom: tileOptions.maxZoom! - 4, 
+        clusterRadius: 50
+      });
+
+      map.current.addLayer({
+        id: 'clusters',
+        type: 'circle',
+        source: 'health-data',
+        filter: ['has', 'point_count'],
+        paint: {
+          'circle-color': [
+            'step',
+            ['get', 'point_count'],
+            '#51bbd6',
+            100,
+            '#f1f075',
+            750,
+            '#f28cb1'
+          ],
+          'circle-radius': [
+            'step',
+            ['get', 'point_count'],
+            20,
+            100,
+            30,
+            750,
+            40
+          ],
+          'circle-opacity': 0.7
+        }
+      });
+
+      map.current.addLayer({
+        id: 'unclustered-point',
+        type: 'circle',
+        source: 'health-data',
+        filter: ['!', ['has', 'point_count']],
+        paint: {
+          'circle-color': [
+            'interpolate',
+            ['linear'],
+            ['get', metric],
+            0, '#51bbd6',
+            50, '#f1f075',
+            100, '#f28cb1'
+          ],
+          'circle-radius': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            7, 2,
+            16, 8
+          ],
+          'circle-opacity': 0.7
+        }
+      });
+
       const customLayer: CustomLayerProperties = {
         id: 'fluid-particles',
-        type: 'fill', // Adjusted to a valid type, choose the type that fits your use case
+        type: 'fill', 
 
         onAdd: function (map: mapboxgl.Map, gl: WebGLRenderingContext) {
           const vertexSource = `
@@ -93,7 +218,7 @@ const GeospatialChart: React.FC<GeospatialChartProps> = ({ data, metric, center,
               return mix( mix( dot( random2(i + vec2(0.0,0.0) ), f - vec2(0.0,0.0) ),
                                dot( random2(i + vec2(1.0,0.0) ), f - vec2(1.0,0.0) ), u.x),
                           mix( dot( random2(i + vec2(0.0,1.0) ), f - vec2(0.0,1.0) ),
-                               dot( random2(i + vec2(1.0,1.0) ), f - vec2(1.0,1.0) ), u.x), u.y);
+                               dot( random2(i + vec2(1.0,1.0) ), f - vec2(1.0,1.0) ), u.y), u.y);
             }
 
             void main() {
@@ -159,83 +284,13 @@ const GeospatialChart: React.FC<GeospatialChartProps> = ({ data, metric, center,
       };
 
       map.current.addLayer(customLayer as mapboxgl.LayerSpecification);
-
-      // Add data points layer
-      map.current.addSource('health-data', {
-        type: 'geojson',
-        data: {
-          type: 'FeatureCollection',
-          features: data.map(point => ({
-            type: 'Feature',
-            geometry: {
-              type: 'Point',
-              coordinates: [point.longitude, point.latitude]
-            },
-            properties: {
-              [metric]: point[metric]
-            }
-          }))
-        },
-        cluster: true,
-        clusterMaxZoom: 14,
-        clusterRadius: 50
-      });
-
-      map.current.addLayer({
-        id: 'clusters',
-        type: 'circle',
-        source: 'health-data',
-        filter: ['has', 'point_count'],
-        paint: {
-          'circle-color': [
-            'step',
-            ['get', 'point_count'],
-            '#51bbd6',
-            100,
-            '#f1f075',
-            750,
-            '#f28cb1'
-          ],
-          'circle-radius': [
-            'step',
-            ['get', 'point_count'],
-            20,
-            100,
-            30,
-            750,
-            40
-          ]
-        }
-      });
-
-      map.current.addLayer({
-        id: 'unclustered-point',
-        type: 'circle',
-        source: 'health-data',
-        filter: ['!', ['has', 'point_count']],
-        paint: {
-          'circle-color': [
-            'interpolate',
-            ['linear'],
-            ['get', metric],
-            0, '#51bbd6',
-            50, '#f1f075',
-            100, '#f28cb1'
-          ],
-          'circle-radius': [
-            'interpolate',
-            ['linear'],
-            ['zoom'],
-            7, 2,
-            16, 8
-          ],
-          'circle-opacity': 0.7
-        }
-      });
     });
 
-    return () => map.current?.remove();
-  }, [data, metric]);
+    return () => {
+      mapTileManager.clearCache();
+      map.current?.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (!map.current || !map.current.isStyleLoaded()) return;
@@ -256,25 +311,14 @@ const GeospatialChart: React.FC<GeospatialChartProps> = ({ data, metric, center,
         }))
       });
     }
-
-    map.current.setPaintProperty('unclustered-point', 'circle-color', [
-      'interpolate',
-      ['linear'],
-      ['get', metric],
-      0, '#51bbd6',
-      50, '#f1f075',
-      100, '#f28cb1'
-    ]);
-
-     return () => map.current?.remove();
   }, [data, metric]);
 
-    useEffect(() => {
+  useEffect(() => {
     if (!map.current || !center) return;
-
-        map.current.setCenter([center.longitude, center.latitude]);
-        map.current.setZoom(zoom);
-    }, [center, zoom]);
+    
+    map.current.setCenter([center.longitude, center.latitude]);
+    map.current.setZoom(Math.min(zoom, tileOptions.maxZoom!));
+  }, [center, zoom, tileOptions.maxZoom]);
 
   useEffect(() => {
     if (!map.current) return;
@@ -292,10 +336,16 @@ const GeospatialChart: React.FC<GeospatialChartProps> = ({ data, metric, center,
     }
   }, [devicePerformance]);
 
-    return (
-    <div className="map-wrapper">
-      <div ref={mapContainer} className="map-container" />
-    </div>
+  return (
+    <div 
+      ref={mapContainer} 
+      style={{
+        width: '100%',
+        height: '100%',
+        opacity: opacity,
+        transition: 'opacity 0.5s ease-in-out'
+      }}
+    />
   );
 };
 

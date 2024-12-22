@@ -1,91 +1,82 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Typography, CircularProgress, Alert, Button } from '@mui/material';
+import React, { useEffect, useState } from 'react';
+import { Typography, CircularProgress, Alert, Container, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 import { useRouter } from 'next/router';
-import HealthTrendChart from '@/components/HealthTrendChart';
+import { HealthTrendChart } from '@/components/HealthTrendChart';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAppSelector } from '@/store';
 import { useHealth } from '@/contexts/HealthContext';
-import type { HealthEnvironmentData, HealthMetric } from '@/types';
-import { useLoadingTimeout } from '@/hooks/useLoadingTimeout';
-import { LoadingTimeoutError } from '@/components/LoadingTimeoutError';
+import { HealthEnvironmentData, HealthMetric } from '@/types';
 
-const StatsPage: React.FC = () => {
-  const { user, loading: authLoading } = useAuth();
+const Stats: React.FC = () => {
   const router = useRouter();
-  const healthData = useAppSelector((state: { health: { data: HealthEnvironmentData[] } }) => state.health.data);
-  const { fetchHealthData, loading, error } = useHealth();
-  
-  const hasTimedOut = useLoadingTimeout({ 
-    isLoading: loading,
-    timeoutMs: 10000 // 10 seconds for stats
-  });
+  const { user } = useAuth();
+  const { healthData, loading, error, fetchHealthData } = useHealth();
+  const [selectedMetric, setSelectedMetric] = useState<HealthMetric>('cardioHealthScore');
 
   useEffect(() => {
-    if (!authLoading && !user) {
+    if (!user) {
       router.push('/login');
-    } else if (user) {
-      fetchHealthData(1); // Fetch first page of health data
+    } else {
+      fetchHealthData();
     }
-  }, [user, authLoading, router, fetchHealthData]);
+  }, [user, router, fetchHealthData]);
 
-  const content = useMemo(() => {
-    if (hasTimedOut) {
-      return (
-        <div className="flex-center full-height">
-          <LoadingTimeoutError 
-            message="Loading health statistics is taking longer than expected." 
-            onRetry={() => {}}
-          />
-        </div>
-      );
-    }
+  const handleDataUpdate = (data: HealthEnvironmentData[], metrics: HealthMetric[]) => {
+    console.log('Health data updated:', data);
+    console.log('Available metrics:', metrics);
+  };
 
-    if (loading) {
-      return (
-        <div className="loading-container">
-          <CircularProgress />
-        </div>
-      );
-    }
-    if (error) {
-      return (
-        <div className="error-container">
-          <Typography color="error">{error.message}</Typography>
-        </div>
-      );
-    }
-    if (healthData.length === 0) {
-      return <Typography variant="body1">No health data available yet. Start tracking to see your stats!</Typography>;
-    }
+  if (loading) {
     return (
-      <div className="page-container">
-        <div className="card-container" style={{ height: 'calc(100vh - 200px)' }}>
-          <HealthTrendChart onDataUpdate={(data: HealthEnvironmentData[], metrics: HealthMetric[]) => {}} />
-        </div>
-      </div>
-    );
-  }, [loading, error, healthData, hasTimedOut]);
-
-  if (authLoading) {
-    return (
-      <div className="flex-center full-height">
+      <Container
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "100vh"
+        }}
+      >
         <CircularProgress />
-      </div>
+      </Container>
     );
   }
 
-  if (!user) {
-    return null; // The useEffect will handle redirecting to login
+  if (error) {
+    return (
+      <Container sx={{ p: 3 }}>
+        <Alert severity="error">Error loading health data: {error.message}</Alert>
+      </Container>
+    );
   }
 
   return (
-    <div className="p-3">
-      <Typography variant="h4" component="h1" gutterBottom>
-        Your Health Stats
+    <Container sx={{ p: 3 }}>
+      <Typography variant="h4" gutterBottom>
+        Health Statistics
       </Typography>
-      {content}
-    </div>
+
+      <FormControl fullWidth sx={{ mb: 3 }}>
+        <InputLabel>Select Metric</InputLabel>
+        <Select
+          value={selectedMetric}
+          label="Select Metric"
+          onChange={(e) => setSelectedMetric(e.target.value as HealthMetric)}
+        >
+          <MenuItem value="cardioHealthScore">Cardio Health</MenuItem>
+          <MenuItem value="respiratoryHealthScore">Respiratory Health</MenuItem>
+          <MenuItem value="physicalActivityScore">Physical Activity</MenuItem>
+          <MenuItem value="environmentalImpactScore">Environmental Impact</MenuItem>
+        </Select>
+      </FormControl>
+
+      <Container sx={{ height: 400, width: '100%' }}>
+        <HealthTrendChart
+          data={healthData}
+          selectedMetric={selectedMetric}
+          onDataUpdate={handleDataUpdate}
+        />
+      </Container>
+    </Container>
   );
 };
 
-export default StatsPage;
+export default Stats;

@@ -1,12 +1,11 @@
-// src/mockData/healthDataGenerator.ts
-
-import type { HealthEnvironmentData } from '@/types';
+import { HealthEnvironmentData, GeoLocation, ActivityLevel } from '@/types';
+import { randomUUID } from 'crypto';
 
 function randomInRange(min: number, max: number): number {
   return Math.random() * (max - min) + min;
 }
 
-function generateMockHealthData(userId: string, days: number): HealthEnvironmentData[] {
+export function generateMockHealthData(userId: string, days: number = 7): HealthEnvironmentData[] {
   const mockData: HealthEnvironmentData[] = [];
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days + 1);
@@ -14,102 +13,87 @@ function generateMockHealthData(userId: string, days: number): HealthEnvironment
   for (let i = 0; i < days; i++) {
     const currentDate = new Date(startDate);
     currentDate.setDate(currentDate.getDate() + i);
+    const timestamp = currentDate.toISOString();
 
-    const entry: HealthEnvironmentData = {
-      _id: `health${i + 1}`,
-      userId: userId,
-      basicHealthId: `basic${i + 1}`,
-      environmentalId: `env${i + 1}`,
-      scoresId: `score${i + 1}`,
-      timestamp: currentDate.toISOString(),
-      steps: Math.floor(randomInRange(5000, 15000)),
-      heartRate: Math.floor(randomInRange(60, 100)),
-      weight: randomInRange(65, 75),
-      height: 175,
-      location: { type: 'Point', coordinates: [-73.935242 + randomInRange(-0.1, 0.1), 40.730610 + randomInRange(-0.1, 0.1)] },
-      activityLevel: ['sedentary', 'light', 'moderate', 'vigorous'][Math.floor(Math.random() * 4)] as any,
-      regionId: 'region1',
-      cityId: 'city1',
-      areaId: 'area1',
-      temperature: randomInRange(15, 30),
-      humidity: randomInRange(40, 80),
-      airQualityIndex: Math.floor(randomInRange(20, 150)),
-      uvIndex: Math.floor(randomInRange(0, 11)),
-      noiseLevel: Math.floor(randomInRange(30, 80)),
-      latitude: 40.730610 + randomInRange(-0.1, 0.1),
-      longitude: -73.935242 + randomInRange(-0.1, 0.1),
-      respiratoryRate: Math.floor(randomInRange(12, 20)),
-      oxygenSaturation: randomInRange(95, 100),
-      activeEnergyBurned: Math.floor(randomInRange(200, 800)),
-      cardioHealthScore: Math.floor(randomInRange(60, 100)),
-      respiratoryHealthScore: Math.floor(randomInRange(60, 100)),
-      physicalActivityScore: Math.floor(randomInRange(60, 100)),
-      environmentalImpactScore: Math.floor(randomInRange(60, 100)),
-      nearestCity: 'New York',
-      onBorder: [],
-      country: 'United States',
-      state: 'New York', // Added state field
-      continent: 'North America',
-      airQualityDescription: ['Good', 'Moderate', 'Unhealthy for Sensitive Groups', 'Unhealthy'][Math.floor(Math.random() * 4)],
-      uvIndexDescription: ['Low', 'Moderate', 'High', 'Very High'][Math.floor(Math.random() * 4)],
-      noiseLevelDescription: ['Quiet', 'Moderate', 'Loud'][Math.floor(Math.random() * 3)],
-      bmi: randomInRange(18.5, 25),
-      environmentalImpact: ['Low', 'Moderate', 'High'][Math.floor(Math.random() * 3)],
-      airQuality: ['Good', 'Moderate', 'Poor'][Math.floor(Math.random() * 3)],
+    const location: GeoLocation = {
+      latitude: 37.7749 + randomInRange(-0.1, 0.1),
+      longitude: -122.4194 + randomInRange(-0.1, 0.1),
+      timestamp
     };
 
-    mockData.push(entry);
+    const activityLevels: ActivityLevel[] = ['sedentary', 'light', 'moderate', 'vigorous'];
+    const activityLevel = activityLevels[Math.floor(Math.random() * activityLevels.length)];
+
+    mockData.push({
+      _id: randomUUID(),
+      id: randomUUID(),
+      basicHealthId: randomUUID(),
+      environmentalId: randomUUID(),
+      scoresId: randomUUID(),
+      userId,
+      timestamp,
+      date: timestamp,
+      location,
+      latitude: location.latitude,
+      longitude: location.longitude,
+      nearestCity: 'San Francisco',
+      onBorder: [],
+      country: 'United States',
+      state: 'California',
+      continent: 'North America',
+      regionId: 'sf-bay-area',
+      cityId: 'san-francisco',
+      areaId: 'downtown',
+      steps: Math.floor(randomInRange(5000, 15000)),
+      heartRate: Math.floor(randomInRange(60, 100)),
+      bloodPressure: {
+        systolic: Math.floor(randomInRange(110, 130)),
+        diastolic: Math.floor(randomInRange(70, 90))
+      },
+      temperature: randomInRange(36.1, 37.2),
+      respiratoryRate: Math.floor(randomInRange(12, 20)),
+      oxygenSaturation: Math.floor(randomInRange(95, 100)),
+      glucose: Math.floor(randomInRange(70, 140)),
+      weight: randomInRange(60, 90),
+      height: randomInRange(160, 190),
+      bmi: randomInRange(18.5, 24.9),
+      sleep: {
+        duration: randomInRange(6, 9),
+        quality: randomInRange(0.6, 1)
+      },
+      stress: randomInRange(0, 100),
+      mood: randomInRange(0, 100),
+      hydration: randomInRange(0, 100),
+      nutrition: {
+        calories: Math.floor(randomInRange(1800, 2500)),
+        protein: Math.floor(randomInRange(50, 100)),
+        carbs: Math.floor(randomInRange(200, 300)),
+        fat: Math.floor(randomInRange(50, 80))
+      },
+      exercise: {
+        duration: Math.floor(randomInRange(20, 60)),
+        intensity: randomInRange(0.4, 0.9),
+        type: 'walking'
+      },
+      activeEnergyBurned: Math.floor(randomInRange(200, 600)),
+      activityLevel,
+      airQuality: Math.floor(randomInRange(0, 100)),
+      environmentalImpact: Math.floor(randomInRange(0, 100)),
+      humidity: Math.floor(randomInRange(30, 70)),
+      airQualityIndex: Math.floor(randomInRange(0, 200)),
+      uvIndex: Math.floor(randomInRange(0, 11)),
+      noiseLevel: Math.floor(randomInRange(30, 80)),
+      airQualityDescription: ['Good', 'Moderate', 'Unhealthy'][Math.floor(Math.random() * 3)],
+      uvIndexDescription: ['Low', 'Moderate', 'High'][Math.floor(Math.random() * 3)],
+      noiseLevelDescription: ['Quiet', 'Moderate', 'Loud'][Math.floor(Math.random() * 3)],
+      cardioHealthScore: Math.floor(randomInRange(0, 100)),
+      respiratoryHealthScore: Math.floor(randomInRange(0, 100)),
+      physicalActivityScore: Math.floor(randomInRange(0, 100)),
+      environmentalImpactScore: Math.floor(randomInRange(0, 100))
+    });
   }
 
   return mockData;
 }
 
 export const mockHealthData = generateMockHealthData('user1', 100);
-
-
-// import type { HealthEnvironmentData } from '../../types';
-
-// export const mockHealthData: HealthEnvironmentData[] = [
-//   {
-//     _id: '1',
-//     userId: 'user1',
-//     basicHealthId: 'health1',
-//     environmentalId: 'env1',
-//     scoresId: 'score1',
-//     timestamp: '2023-05-01T12:00:00Z',
-//     steps: 8000,
-//     heartRate: 72,
-//     weight: 70,
-//     height: 175,
-//     location: { type: 'Point', coordinates: [-73.935242, 40.730610] },
-//     activityLevel: 'moderate',
-//     regionId: 'region1',
-//     cityId: 'city1',
-//     areaId: 'area1',
-//     temperature: 22,
-//     humidity: 60,
-//     airQualityIndex: 50,
-//     uvIndex: 5,
-//     noiseLevel: 45,
-//     latitude: 40.730610,
-//     longitude: -73.935242,
-//     respiratoryRate: 14,
-//     oxygenSaturation: 98,
-//     activeEnergyBurned: 300,
-//     cardioHealthScore: 85,
-//     respiratoryHealthScore: 90,
-//     physicalActivityScore: 80,
-//     environmentalImpactScore: 75,
-//     nearestCity: 'New York',
-//     onBorder: [],
-//     country: 'United States',
-//     continent: 'North America',
-//     airQualityDescription: 'Moderate',
-//     uvIndexDescription: 'Moderate',
-//     noiseLevelDescription: 'Normal',
-//     bmi: 22.9,
-//     environmentalImpact: 'Low',
-//     airQuality: 'Good',
-//   },
-//   // Add more mock data entries here...
-// ];

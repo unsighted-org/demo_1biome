@@ -443,6 +443,34 @@ a {
   padding: 24px;
 }
 
+.app-header {
+  background-color: var(--background-paper);
+  z-index: 1200; /* Above drawer */
+}
+
+.app-header.with-drawer {
+  width: calc(100% - 240px);
+}
+
+.menu-button {
+  margin-right: 16px;
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .menu-button {
+    display: block;
+  }
+  
+  .app-header.with-drawer {
+    width: 100%;
+  }
+
+  .layout-main {
+    padding-top: 56px; /* Smaller AppBar height on mobile */
+  }
+}
+
 /* Header styles */
 .app-header {
   background-color: var(--background-paper);
@@ -905,6 +933,7 @@ a {
   padding: 2rem;
   max-width: 1200px;
   margin: 0 auto;
+  width: 100%;
 }
 
 .dashboard-grid {
@@ -1382,4 +1411,95 @@ a {
 
 .health-trend-card {
   height: 100%;
+}
+
+/* Globe Visualization Styles */
+.globe-visualization {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  background: linear-gradient(
+    to bottom,
+    rgb(var(--background-start-rgb)),
+    rgb(var(--background-end-rgb))
+  );
+  overflow: hidden;
+}
+
+.globe-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.performance-warning {
+  position: absolute;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(var(--foreground-rgb), 0.1);
+  color: rgb(var(--foreground-rgb));
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  backdrop-filter: blur(4px);
+  z-index: 10;
+  transition: opacity 0.3s ease;
+}
+
+.globe-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  color: rgb(var(--foreground-rgb));
+  z-index: 20;
+}
+
+.globe-controls {
+  position: absolute;
+  bottom: 2rem;
+  right: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  z-index: 30;
+}
+
+.globe-control-button {
+  background-color: rgba(var(--background-end-rgb), 0.8);
+  color: rgb(var(--foreground-rgb));
+  border: 1px solid rgba(var(--foreground-rgb), 0.2);
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(4px);
+}
+
+.globe-control-button:hover {
+  background-color: rgba(var(--background-end-rgb), 0.9);
+  transform: scale(1.05);
+}
+
+.globe-tooltip {
+  position: absolute;
+  background-color: rgba(var(--background-end-rgb), 0.9);
+  color: rgb(var(--foreground-rgb));
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  pointer-events: none;
+  z-index: 40;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  max-width: 300px;
+  backdrop-filter: blur(8px);
 }

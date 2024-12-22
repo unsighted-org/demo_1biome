@@ -1,5 +1,5 @@
 import { createSlice, createAction, PayloadAction } from '@reduxjs/toolkit';
-import type { HealthEnvironmentData, HealthState, HealthScores, RegionalComparison } from '@/types';
+import type { HealthEnvironmentData, HealthState, HealthScore, RegionalComparison } from '@/types';
 
 const initialState: HealthState = {
   data: [],
@@ -26,7 +26,7 @@ const healthSlice = createSlice({
       state.data.push(action.payload);
       state.lastSyncTime = new Date().toISOString();
     },
-    updateHealthScores: (state, action: PayloadAction<HealthScores>) => {
+    updateHealthScores: (state, action: PayloadAction<HealthScore>) => {
       state.scores = action.payload;
     },
     updateRegionalComparison: (state, action: PayloadAction<RegionalComparison>) => {

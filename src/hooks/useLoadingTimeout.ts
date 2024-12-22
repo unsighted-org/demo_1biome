@@ -1,36 +1,37 @@
 import { useState, useEffect } from 'react';
 
-interface UseLoadingTimeoutProps {
+interface LoadingTimeoutOptions {
   isLoading: boolean;
-  timeoutMs?: number;
+  timeoutMs: number;
 }
 
-export const useLoadingTimeout = ({ 
-  isLoading, 
-  timeoutMs = 10000 // default 10 seconds
-}: UseLoadingTimeoutProps) => {
-  const [hasTimedOut, setHasTimedOut] = useState(false);
+interface LoadingTimeoutResult {
+  loading: boolean;
+  timedOut: boolean;
+}
+
+export function useLoadingTimeout({ isLoading, timeoutMs }: LoadingTimeoutOptions): LoadingTimeoutResult {
+  const [timedOut, setTimedOut] = useState(false);
 
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-    
-    if (isLoading && !hasTimedOut) {
-      timeoutId = setTimeout(() => {
-        setHasTimedOut(true);
-      }, timeoutMs);
+    if (!isLoading) {
+      setTimedOut(false);
+      return;
     }
 
-    // Reset timeout when loading stops
-    if (!isLoading && hasTimedOut) {
-      setHasTimedOut(false);
-    }
-
-    return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
+    const timeoutId = setTimeout(() => {
+      if (isLoading) {
+        setTimedOut(true);
       }
-    };
-  }, [isLoading, timeoutMs, hasTimedOut]);
+    }, timeoutMs);
 
-  return hasTimedOut;
-};
+    return () => clearTimeout(timeoutId);
+  }, [isLoading, timeoutMs]);
+
+  return {
+    loading: isLoading,
+    timedOut
+  };
+}
+
+export default useLoadingTimeout;

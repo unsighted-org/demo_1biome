@@ -44,61 +44,104 @@ class AdvancedGlowMaterial extends THREE.ShaderMaterial {
 }
 
 // Improved Earth Material with dynamic cloud layer
-class ImprovedEarthMaterial extends THREE.ShaderMaterial {
-  constructor(earthTexture: THREE.Texture, cloudTexture: THREE.Texture) {
+class ImprovedEarthMaterial extends THREE.MeshStandardMaterial {
+  constructor() {
+    super({
+      metalness: 0.1,
+      roughness: 0.8,
+      normalScale: new THREE.Vector2(0.05, 0.05)
+    });
+  }
+}
+
+// OpenStreetMap tile material with dynamic LOD and hover effect
+class OpenStreetMapMaterial extends THREE.ShaderMaterial {
+  constructor() {
     super({
       uniforms: {
-        earthTexture: { value: earthTexture },
-        cloudTexture: { value: cloudTexture },
-        lightColor: { value: new THREE.Color(0xffffff) },
-        darkColor: { value: new THREE.Color(0x000000) },
-        atmosphereColor: { value: new THREE.Color(0x004080) },
-        time: { value: 0 },
+        tileTextures: { value: [] },
+        zoomLevel: { value: 0 },
+        tileCoords: { value: new THREE.Vector4() }, // x, y coordinates and zoom level
+        transitionProgress: { value: 0.0 },
+        previousTileTextures: { value: [] },
+        hoverPosition: { value: new THREE.Vector2() },
+        isHovering: { value: 0.0 }
       },
       vertexShader: `
         varying vec2 vUv;
-        varying vec3 vNormal;
-
+        varying vec3 vPosition;
         void main() {
           vUv = uv;
-          vNormal = normalize(normalMatrix * normal);
+          vPosition = position;
           gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }
       `,
       fragmentShader: `
-        uniform sampler2D earthTexture;
-        uniform sampler2D cloudTexture;
-        uniform vec3 lightColor;
-        uniform vec3 darkColor;
-        uniform vec3 atmosphereColor;
-        uniform float time;
-
+        uniform sampler2D tileTextures[4];
+        uniform sampler2D previousTileTextures[4];
+        uniform float zoomLevel;
+        uniform vec4 tileCoords;
+        uniform float transitionProgress;
+        uniform vec2 hoverPosition;
+        uniform float isHovering;
         varying vec2 vUv;
-        varying vec3 vNormal;
+        varying vec3 vPosition;
+
+        const float PI = 3.1415926535897932384626433832795;
+
+        // Convert 3D position to lat/lon
+        vec2 getLatLon(vec3 position) {
+          float lat = asin(position.y);
+          float lon = atan(position.x, position.z);
+          return vec2(lat * 180.0 / PI, lon * 180.0 / PI);
+        }
+
+        // Calculate distance between two lat/lon points
+        float getDistance(vec2 p1, vec2 p2) {
+          vec2 diff = p1 - p2;
+          return length(diff);
+        }
 
         void main() {
-          vec4 texColor = texture2D(earthTexture, vUv);
-          vec4 cloudColor = texture2D(cloudTexture, vUv + vec2(time * 0.0001, 0.0));
-          float lighting = dot(vNormal, normalize(vec3(1, 1, 1)));
-          vec3 color = mix(darkColor, lightColor, texColor.r);
-          color *= 0.5 + 0.5 * lighting;
+          // Calculate tile coordinates
+          vec2 tileUv = fract(vUv * tileCoords.xy + tileCoords.zw);
+          
+          // Sample current and previous textures
+          vec4 currentColor = texture2D(tileTextures[0], tileUv);
+          vec4 previousColor = texture2D(previousTileTextures[0], tileUv);
+          
+          // Blend between previous and current zoom level
+          vec4 baseColor = mix(previousColor, currentColor, transitionProgress);
 
-          float atmosphere = pow(1.0 - abs(dot(vNormal, vec3(0, 0, 1))), 2.0);
-          color += atmosphereColor * atmosphere * 0.3;
-          color = mix(color, vec3(1.0), cloudColor.r * 0.3);
-
-          gl_FragColor = vec4(color, 1.0);
+          // Calculate hover effect
+          vec2 latLon = getLatLon(normalize(vPosition));
+          float dist = getDistance(latLon, hoverPosition);
+          float hoverEffect = isHovering * (1.0 - smoothstep(0.0, 10.0, dist));
+          
+          // Apply hover highlight
+          vec3 highlightColor = vec3(1.0, 1.0, 1.0);
+          vec3 finalColor = mix(baseColor.rgb, highlightColor, hoverEffect * 0.2);
+          
+          gl_FragColor = vec4(finalColor, baseColor.a);
         }
       `,
+      transparent: true,
     });
   }
 
-  update(time: number): void {
-    this.uniforms.time.value = time;
+  update(zoomLevel: number, tileCoords: THREE.Vector4, progress: number): void {
+    this.uniforms.zoomLevel.value = zoomLevel;
+    this.uniforms.tileCoords.value = tileCoords;
+    this.uniforms.transitionProgress.value = progress;
+  }
+
+  setHoverPosition(hoverPosition: THREE.Vector2, isHovering: boolean): void {
+    this.uniforms.hoverPosition.value = hoverPosition;
+    this.uniforms.isHovering.value = isHovering ? 1.0 : 0.0;
   }
 }
 
-extend({ AdvancedGlowMaterial, ImprovedEarthMaterial });
+extend({ AdvancedGlowMaterial, ImprovedEarthMaterial, OpenStreetMapMaterial });
 
 export const latLongToVector3 = (lat: number, lon: number, radius: number): THREE.Vector3 => {
   const phi = THREE.MathUtils.degToRad(90 - lat);
@@ -126,8 +169,12 @@ export const createAdvancedGlowMaterial = (): AdvancedGlowMaterial => {
   return new AdvancedGlowMaterial();
 };
 
-export const createImprovedEarthMaterial = (earthTexture: THREE.Texture, cloudTexture: THREE.Texture): ImprovedEarthMaterial => {
-  return new ImprovedEarthMaterial(earthTexture, cloudTexture);
+export const createImprovedEarthMaterial = (): ImprovedEarthMaterial => {
+  return new ImprovedEarthMaterial();
+};
+
+export const createOpenStreetMapMaterial = (): OpenStreetMapMaterial => {
+  return new OpenStreetMapMaterial();
 };
 
 export const createStarField = (count: number, radius: number): THREE.Points => {
@@ -259,6 +306,8 @@ export const updateDataPoints = (
 export const optimizeForMobile = (renderer: THREE.WebGLRenderer): void => {
   const pixelRatio = Math.min(window.devicePixelRatio, 2);
   renderer.setPixelRatio(pixelRatio);
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = false;
 };
 
 // Helper function to check if WebGL is available
@@ -321,16 +370,72 @@ export const createAtmosphereMaterial = (earthTexture: THREE.Texture): THREE.Sha
   });
 };
 
+// Tile loading and management
+class TileManager {
+  private cache: Map<string, THREE.Texture>;
+  private loader: THREE.TextureLoader;
+  
+  constructor() {
+    this.cache = new Map();
+    this.loader = new THREE.TextureLoader();
+  }
 
+  async loadTile(x: number, y: number, zoom: number): Promise<THREE.Texture> {
+    const key = `${zoom}/${x}/${y}`;
+    if (this.cache.has(key)) {
+      return this.cache.get(key)!;
+    }
+
+    const url = `https://tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
+    return new Promise((resolve, reject) => {
+      this.loader.load(
+        url,
+        (texture) => {
+          this.cache.set(key, texture);
+          resolve(texture);
+        },
+        undefined,
+        reject
+      );
+    });
+  }
+
+  clearOldTiles(currentZoom: number): void {
+    for (const [key] of this.cache) {
+      const [zoom] = key.split('/').map(Number);
+      if (Math.abs(zoom - currentZoom) > 2) {
+        this.cache.delete(key);
+      }
+    }
+  }
+}
+
+export const tileManager = new TileManager();
+
+export const calculateTileCoords = (lat: number, lon: number, zoom: number) => {
+  const n = Math.pow(2, zoom);
+  const latRad = lat * Math.PI / 180;
+  
+  const xtile = Math.floor((lon + 180) / 360 * n);
+  const ytile = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n);
+  
+  return {
+    x: xtile,
+    y: ytile,
+    offsetX: ((lon + 180) / 360 * n) % 1,
+    offsetY: ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n) % 1
+  };
+};
+
+export const getTileUrl = (x: number, y: number, zoom: number): string => {
+  return `https://tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
+};
 
 export function createGeospatialMaterial(healthData: HealthEnvironmentData[], displayMetric: HealthMetric): THREE.ShaderMaterial {
   const width = 360;
   const height = 180;
   const size = width * height;
-  const data = new Float32Array(4 * size);
-
-  // Initialize all data to 0
-  data.fill(0);
+  const data = new Uint8Array(width * height * 4);
 
   // Use more efficient data mapping
   const dataMap = new Map<string, number>();
@@ -341,7 +446,8 @@ export function createGeospatialMaterial(healthData: HealthEnvironmentData[], di
     
     // Keep the highest value for each location
     const currentValue = dataMap.get(key) || 0;
-    const newValue = datum[displayMetric] / 100;
+    const metricValue = datum[displayMetric];
+    const newValue = typeof metricValue === 'number' ? metricValue / 100 : 0;
     if (newValue > currentValue) {
       dataMap.set(key, newValue);
     }
@@ -351,11 +457,13 @@ export function createGeospatialMaterial(healthData: HealthEnvironmentData[], di
   dataMap.forEach((value, key) => {
     const [x, y] = key.split(',').map(Number);
     const index = (y * width + x) * 4;
-    data[index] = value;
-    data[index + 3] = 1;
+    data[index] = value * 255;
+    data[index + 1] = 0;
+    data[index + 2] = 255 - value * 255;
+    data[index + 3] = 128;
   });
 
-  const dataTexture = new THREE.DataTexture(data, width, height, THREE.RGBAFormat, THREE.FloatType);
+  const dataTexture = new THREE.DataTexture(data, width, height, THREE.RGBAFormat, THREE.UnsignedByteType);
   dataTexture.needsUpdate = true;
 
   return new THREE.ShaderMaterial({

@@ -1,7 +1,7 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
 import { HealthProvider, useHealth } from '@/contexts/HealthContext';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { render, screen, waitFor } from '@testing-library/react';
 
 // Mock health service
 jest.mock('@/services/HealthService', () => ({

@@ -1,0 +1,40 @@
+.globe-visualization {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.location-info {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 12px 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+  z-index: 1000;
+  max-width: 400px;
+  transition: all 0.3s ease;
+}
+
+.location-info:hover {
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+}
+
+.globe-loading-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.loading-text {
+  color: rgba(0, 0, 0, 0.7);
+  margin-top: 8px;
+}

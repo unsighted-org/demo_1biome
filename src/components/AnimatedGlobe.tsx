@@ -1,14 +1,17 @@
-import { CircularProgress, FormControl, InputLabel, MenuItem, Select, Typography } from '@mui/material';
+import { CircularProgress, Typography } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { debounce } from 'lodash';
 import dynamic from 'next/dynamic';
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 
 import { useHealth } from '@/contexts/HealthContext';
-import { getRegionInfo } from '@/lib/helpers';
+import { getLocationInfo } from '@/lib/helpers';
+import { RenderingPipeline } from '@/lib/renderingPipeline';
 import type { HealthEnvironmentData, HealthMetric } from '@/types';
+import { LocationInfo } from '@/services/GeocodingService';
+import { useGlobeTexture } from '@/hooks/useGlobeTexture';
 
-// Dynamically import the EnhancedGlobeVisualization component
+// Dynamically import components
 const EnhancedGlobeVisualization = dynamic(
   () => import('./EnhancedGlobeVisualization'),
   { 
@@ -30,17 +33,30 @@ const FallbackComponent = dynamic(
 );
 
 interface AnimatedGlobeProps {
-  onLocationHover: (location: { name: string; country: string; state: string; continent: string; } | null) => void;
+  onLocationHover: (location: LocationInfo | null) => void;
   displayMetric: HealthMetric;
+  renderingPipeline?: RenderingPipeline;
 }
 
-export const AnimatedGlobe: React.FC<AnimatedGlobeProps> = ({ onLocationHover, displayMetric }) => {
+export const AnimatedGlobe: React.FC<AnimatedGlobeProps> = ({ 
+  onLocationHover, 
+  displayMetric,
+  renderingPipeline 
+}) => {
   const { healthData } = useHealth();
   const [error, setError] = useState<Error | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isInteracting, setIsInteracting] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [center, setCenter] = useState({ latitude: 0, longitude: 0 });
+  const [locationInfo, setLocationInfo] = useState<LocationInfo | null>(null);
+
+  const { 
+    currentTexture, 
+    setTexture: handleTextureChange,
+    loading: textureLoading,
+    error: textureError 
+  } = useGlobeTexture(renderingPipeline);
 
   const handleZoomChange = useCallback((newZoom: number) => {
     setZoom(newZoom);
@@ -53,26 +69,29 @@ export const AnimatedGlobe: React.FC<AnimatedGlobeProps> = ({ onLocationHover, d
 
   const handleLocationHover = useCallback(async (location: { latitude: number; longitude: number; } | null) => {
     if (!location) {
+      setLocationInfo(null);
       onLocationHover(null);
       return;
     }
 
     try {
-      const regionInfo = await getRegionInfo(location.latitude, location.longitude);
+      const regionInfo = await getLocationInfo(location.latitude, location.longitude);
+      setLocationInfo({
+        ...regionInfo,
+        formattedAddress: regionInfo.formattedAddress || ''
+      });
       onLocationHover({
-        name: regionInfo.city,
-        country: regionInfo.country,
-        state: regionInfo.state,
-        continent: regionInfo.continent
+        ...regionInfo,
+        formattedAddress: regionInfo.formattedAddress || ''
       });
     } catch (error) {
       console.error('Error getting region info:', error);
+      setLocationInfo(null);
       onLocationHover(null);
     }
   }, [onLocationHover]);
 
   useEffect(() => {
-    // Simulate loading time for smoother transitions
     const timer = setTimeout(() => {
       setIsLoading(false);
     }, 1000);
@@ -92,24 +111,38 @@ export const AnimatedGlobe: React.FC<AnimatedGlobeProps> = ({ onLocationHover, d
         onZoomChange={handleZoomChange}
         onCameraChange={handleCameraChange}
         displayMetric={displayMetric}
+        currentTexture={currentTexture}
+        onTextureChange={handleTextureChange}
+        isLoading={isLoading || textureLoading}
+        error={textureError}
       />
       <AnimatePresence>
-        {isLoading && (
+        {locationInfo && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="globe-loading-container"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="location-info"
           >
-            <CircularProgress size={40} />
-            <Typography variant="body1" className="loading-text">
-              Loading Globe...
+            <Typography variant="h6" component="div">
+              {locationInfo.formattedAddress || (
+                <>
+                  {locationInfo.formattedAddress && <span>{locationInfo.formattedAddress}</span>}
+                  {locationInfo.state && <span>, {locationInfo.state}</span>}
+                  {locationInfo.country && <span>, {locationInfo.country}</span>}
+                </>
+              )}
             </Typography>
+            {locationInfo.neighborhood && (
+              <Typography variant="body2" color="textSecondary">
+                Neighborhood: {locationInfo.neighborhood}
+              </Typography>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
     </div>
   );
-};
+}
 
 export default AnimatedGlobe;

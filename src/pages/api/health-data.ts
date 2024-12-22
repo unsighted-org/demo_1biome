@@ -11,10 +11,10 @@ import {
   SOCKET_UPDATE_INTERVAL
 } from '@/constants';
 
-import type { HealthEnvironmentData } from '@/types';
+import type { HealthEnvironmentData, GeoLocation } from '@/types';
 import type { Server as HTTPServer, IncomingMessage } from 'http';
 import type { Socket } from 'net';
-import { NextApiResponse, NextApiRequest } from 'next/dist/shared/lib/utils';
+import { NextApiRequest, NextApiResponse } from 'next';
 
 interface SocketServer extends HTTPServer {
   io?: SocketIOServer;
@@ -46,48 +46,60 @@ async function generateMockData(startIndex: number, count: number, req: Incoming
 
       const mockData: HealthEnvironmentData = {
         _id: new ObjectId().toString(),
-        userId: new ObjectId().toString(),
+        id: new ObjectId().toString(),
         basicHealthId: new ObjectId().toString(),
         environmentalId: new ObjectId().toString(),
         scoresId: new ObjectId().toString(),
+        userId: new ObjectId().toString(),
+        date: new Date(timestamp).toISOString(),
         timestamp,
         steps,
         heartRate: Math.floor(Math.random() * 30) + 60,
+        bloodPressure: { systolic: 120, diastolic: 80 },
+        temperature: Math.random() * 50 - 10,
+        respiratoryRate: Math.floor(Math.random() * 10) + 10,
+        oxygenSaturation: Math.floor(Math.random() * 5) + 95,
+        glucose: Math.floor(Math.random() * 50) + 70,
         weight,
         height,
+        bmi: Number((weight / Math.pow(height / 100, 2)).toFixed(1)),
+        sleep: { duration: 8, quality: 0.8 },
+        stress: Math.floor(Math.random() * 100),
+        mood: Math.floor(Math.random() * 100),
+        hydration: Math.floor(Math.random() * 100),
+        nutrition: { calories: 2000, protein: 60, carbs: 250, fat: 70 },
+        exercise: { duration: 30, intensity: 0.7, type: 'walking' },
         location: {
-          type: "Point",
-          coordinates: [longitude, latitude],
+          latitude,
+          longitude,
+          accuracy: 10,
+          timestamp: new Date().toISOString()
         },
-        activityLevel: getActivityLevel(steps),
+        latitude,
+        longitude,
+        nearestCity: locationDetails?.city || 'Unknown',
+        onBorder: [],
+        country: locationDetails?.country || 'Unknown',
+        continent: locationDetails?.continent || 'Unknown',
+        state: locationDetails?.state || 'Unknown',
         regionId: new ObjectId().toString(),
         cityId: new ObjectId().toString(),
         areaId: new ObjectId().toString(),
-        temperature: Math.random() * 50 - 10,
+        airQuality: Math.floor(Math.random() * 100),
+        environmentalImpact: Math.floor(Math.random() * 100),
         humidity: Math.random() * 100,
         airQualityIndex: Math.floor(Math.random() * 500),
         uvIndex: Math.floor(Math.random() * 11),
         noiseLevel: Math.floor(Math.random() * 100) + 20,
-        latitude,
-        longitude,
-        respiratoryRate: Math.floor(Math.random() * 10) + 10,
-        oxygenSaturation: Math.floor(Math.random() * 5) + 95,
-        activeEnergyBurned: Math.floor(Math.random() * 1000) + 100,
+        airQualityDescription: 'Moderate',
+        uvIndexDescription: 'Low',
+        noiseLevelDescription: 'Normal',
         cardioHealthScore: Math.floor(Math.random() * 100),
         respiratoryHealthScore: Math.floor(Math.random() * 100),
         physicalActivityScore: Math.floor(Math.random() * 100),
         environmentalImpactScore: Math.floor(Math.random() * 100),
-        nearestCity: locationDetails?.city || 'Unknown',
-        onBorder: [],  // Initialize as empty array since we don't have border data
-        country: locationDetails?.country || 'Unknown',
-        continent: locationDetails?.continent || 'Unknown',
-        state: locationDetails?.state || 'Unknown',
-        airQualityDescription: 'Moderate',
-        uvIndexDescription: 'Low',
-        noiseLevelDescription: 'Normal',
-        bmi: Number((weight / Math.pow(height / 100, 2)).toFixed(1)),
-        environmentalImpact: 'Low',
-        airQuality: 'Good',
+        activityLevel: 'moderate' as any,
+        activeEnergyBurned: Math.floor(Math.random() * 1000)
       };
 
       return mockData;
@@ -117,22 +129,22 @@ export default async function getHealthData(
   res: NextApiResponseWithSocket
 ): Promise<void> {
   if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
+    return res.status(405).json({ message: 'Method Not Allowed' });
   }
 
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) {
-    return res.status(401).json({ error: 'No token provided' });
+    return res.status(401).json({ message: 'No token provided' });
   }
 
   const userId = await verifyToken(token);
   if (!userId) {
-    return res.status(401).json({ error: 'Invalid token' });
+    return res.status(401).json({ message: 'Invalid token' });
   }
 
   const pageNumber = parseInt(req.query.page as string, 10) || 1;
   if (pageNumber < 1) {
-    return res.status(400).json({ error: 'Invalid page number' });
+    return res.status(400).json({ message: 'Invalid page number' });
   }
 
   const startIndex = (pageNumber - 1) * PAGE_SIZE;

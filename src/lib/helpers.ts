@@ -16,6 +16,8 @@ import RBush from 'rbush';
 import type { HealthEnvironmentData } from '@/types';
 import type { GeoJSON } from 'geojson';
 
+import GeocodingService from '@/services/GeocodingService';
+
 // Define types for GeoJSON features and spatial items
 type Feature = GeoJSON.Feature<GeoJSON.Geometry, GeoJSON.GeoJsonProperties>;
 type FeatureCollection = GeoJSON.FeatureCollection<GeoJSON.Geometry, GeoJSON.GeoJsonProperties>;
@@ -170,44 +172,25 @@ export async function initializeGeoData(): Promise<void> {
 }
 
 // Function to get region information based on latitude and longitude
-export async function getRegionInfo(lat: number, lon: number): Promise<{ 
+export async function getLocationInfo(lat: number, lon: number): Promise<{ 
   country: string; 
   state: string; 
   city: string; 
   continent: string;
+  neighborhood?: string;
+  formattedAddress?: string;
 }> {
   try {
-    await initializeGeoData();
-
-    const point = { minX: lon, minY: lat, maxX: lon, maxY: lat };
-    const countries = countriesIndex?.search(point) || [];
-    const cities = citiesIndex?.search(point) || [];
-
-    const country = countries[0]?.feature.properties?.name || '';
-    const city = cities[0]?.feature.properties?.name || '';
-    const state = cities[0]?.feature.properties?.state || '';
-    const continent = countries[0]?.feature.properties?.continent || '';
-
-    // Cache the result for this location
-    const cacheKey = `location:${lat},${lon}`;
-    const locationData = { country, state, city, continent };
-    await redisSet(cacheKey, JSON.stringify(locationData), 3600); // Cache for 1 hour
-
-    return locationData;
+    return await GeocodingService.getInstance().getLocationInfo(lat, lon);
   } catch (error) {
-    console.error('Error getting region info:', error);
-    return {
-      country: '',
-      state: '',
-      city: '',
-      continent: ''
-    };
+    console.error('Error getting location info:', error);
+    throw error;
   }
 }
 
 // Function to get location information based on latitude and longitude, debounced
-export const getLocationInfo = debounce(async (lat: number, lon: number): Promise<{ country: string; city: string; continent: string; state: string }> => {
-  const regionInfo = await getRegionInfo(lat, lon);
+export const getLocationInfoDebounced = debounce(async (lat: number, lon: number): Promise<{ country: string; city: string; continent: string; state: string }> => {
+  const regionInfo = await getLocationInfo(lat, lon);
   return regionInfo; // This now includes the state information as well
 }, 200);
 

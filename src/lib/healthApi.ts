@@ -1,7 +1,7 @@
 import axios from 'axios';
 import io from 'socket.io-client';
 
-import type { HealthEnvironmentData, HealthScores, RegionalComparison, EnterpriseUser } from '../types';
+import type { HealthEnvironmentData, HealthScore, RegionalComparison, EnterpriseUser } from '../types';
 
 const BASE_URL = '/api/health-data';
 
@@ -19,7 +19,7 @@ export const healthApi = {
     await axios.post(`${BASE_URL}/sync`, { deviceId });
   },
 
-  getHealthScores: async (userId: string): Promise<HealthScores> => {
+  getHealthScores: async (userId: string): Promise<HealthScore> => {
     const response = await axios.get(`${BASE_URL}/scores/${userId}`);
     return response.data;
   },

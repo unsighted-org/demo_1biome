@@ -25,7 +25,17 @@ import {
   Alert,
   Pagination
 } from '@mui/material';
-import type { DashboardProps } from '@/types';
+import type { HealthEnvironmentData, HealthScore, RegionalComparison, UserState } from '@/types';
+
+interface DashboardProps {
+  user: UserState;
+  healthData: HealthEnvironmentData[];
+  healthScores: HealthScore | null;
+  regionalComparison: RegionalComparison | null;
+  onPageChange: (newPage: number) => void;
+  currentPage: number;
+  totalPages: number;
+}
 
 const getScoreColor = (score: number) => {
   if (score >= 80) return 'success.main';
@@ -192,11 +202,11 @@ const Dashboard: React.FC<DashboardProps> = ({
               <div className="metric-container">
                 <Typography variant="h6">Cardio Health Score</Typography>
                 <div className="metric-value">
-                  <Typography variant="h4" color={getScoreColor(healthScores.cardioHealthScore)}>
-                    {healthScores.cardioHealthScore || 'N/A'}
+                  <Typography variant="h4" color={getScoreColor(healthScores?.cardioHealthScore ?? 0)}>
+                    {healthScores?.cardioHealthScore?.toFixed(2) || 'N/A'}
                   </Typography>
-                  <Typography variant="body2" style={{ color: getScoreColor(healthScores.cardioHealthScore) }}>
-                    {healthScores.cardioHealthScore >= 80 ? 'Excellent' : 'Needs Improvement'}
+                  <Typography variant="body2" style={{ color: getScoreColor(healthScores?.cardioHealthScore ?? 0) }}>
+                    {(healthScores?.cardioHealthScore ?? 0) >= 80 ? 'Excellent' : 'Needs Improvement'}
                   </Typography>
                 </div>
               </div>
@@ -210,11 +220,11 @@ const Dashboard: React.FC<DashboardProps> = ({
               <div className="metric-container">
                 <Typography variant="h6">Respiratory Health Score</Typography>
                 <div className="metric-value">
-                  <Typography variant="h4" color={getScoreColor(healthScores.respiratoryHealthScore)}>
-                    {healthScores.respiratoryHealthScore || 'N/A'}
+                  <Typography variant="h4" color={getScoreColor(healthScores?.respiratoryHealthScore ?? 0)}>
+                    {healthScores?.respiratoryHealthScore?.toFixed(2) || 'N/A'}
                   </Typography>
-                  <Typography variant="body2" style={{ color: getScoreColor(healthScores.respiratoryHealthScore) }}>
-                    {healthScores.respiratoryHealthScore >= 80 ? 'Excellent' : 'Needs Improvement'}
+                  <Typography variant="body2" style={{ color: getScoreColor(healthScores?.respiratoryHealthScore ?? 0) }}>
+                    {(healthScores?.respiratoryHealthScore ?? 0) >= 80 ? 'Excellent' : 'Needs Improvement'}
                   </Typography>
                 </div>
               </div>
@@ -228,11 +238,11 @@ const Dashboard: React.FC<DashboardProps> = ({
               <div className="metric-container">
                 <Typography variant="h6">Physical Activity Score</Typography>
                 <div className="metric-value">
-                  <Typography variant="h4" color={getScoreColor(healthScores.physicalActivityScore)}>
-                    {healthScores.physicalActivityScore || 'N/A'}
+                  <Typography variant="h4" color={getScoreColor(healthScores?.physicalActivityScore ?? 0)}>
+                    {healthScores?.physicalActivityScore?.toFixed(2) || 'N/A'}
                   </Typography>
-                  <Typography variant="body2" style={{ color: getScoreColor(healthScores.physicalActivityScore) }}>
-                    {healthScores.physicalActivityScore >= 80 ? 'Excellent' : 'Needs Improvement'}
+                  <Typography variant="body2" style={{ color: getScoreColor(healthScores?.physicalActivityScore ?? 0) }}>
+                    {(healthScores?.physicalActivityScore ?? 0) >= 80 ? 'Excellent' : 'Needs Improvement'}
                   </Typography>
                 </div>
               </div>
@@ -246,11 +256,11 @@ const Dashboard: React.FC<DashboardProps> = ({
               <div className="metric-container">
                 <Typography variant="h6">Environmental Impact Score</Typography>
                 <div className="metric-value">
-                  <Typography variant="h4" color={getScoreColor(healthScores.environmentalImpactScore)}>
-                    {healthScores.environmentalImpactScore || 'N/A'}
+                  <Typography variant="h4" color={getScoreColor(healthScores?.environmentalImpactScore ?? 0)}>
+                    {healthScores?.environmentalImpactScore?.toFixed(2) || 'N/A'}
                   </Typography>
-                  <Typography variant="body2" style={{ color: getScoreColor(healthScores.environmentalImpactScore) }}>
-                    {healthScores.environmentalImpactScore >= 80 ? 'Excellent' : 'Needs Improvement'}
+                  <Typography variant="body2" style={{ color: getScoreColor(healthScores?.environmentalImpactScore ?? 0) }}>
+                    {(healthScores?.environmentalImpactScore ?? 0) >= 80 ? 'Excellent' : 'Needs Improvement'}
                   </Typography>
                 </div>
               </div>

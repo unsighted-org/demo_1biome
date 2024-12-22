@@ -103,13 +103,167 @@ export interface UserSettings {
   dataRetentionPeriod: number;
 }
 
-// Location-related interfaces
-export interface Location {
-  type: 'Point';
-  coordinates: [number, number]; // [longitude, latitude]
+// Location types
+export interface GeoLocation {
+  latitude: number;
+  longitude: number;
+  accuracy?: number;
+  timestamp?: string;
 }
 
-// Health-related interfaces
+// Activity level type
+export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'vigorous';
+
+// Health-related types
+export type BaseHealthMetric = 
+  | 'steps'
+  | 'heartRate'
+  | 'bloodPressure'
+  | 'temperature'
+  | 'respiratoryRate'
+  | 'oxygenSaturation'
+  | 'glucose'
+  | 'weight'
+  | 'bmi'
+  | 'sleep'
+  | 'stress'
+  | 'mood'
+  | 'hydration'
+  | 'nutrition'
+  | 'exercise'
+  | 'airQuality'
+  | 'environmentalImpact';
+
+export interface HealthScore {
+  cardioHealthScore: number;
+  respiratoryHealthScore: number;
+  physicalActivityScore: number;
+  environmentalImpactScore: number;
+}
+
+export type HealthScoreMetric = 
+  | 'cardioHealthScore'
+  | 'respiratoryHealthScore'
+  | 'physicalActivityScore'
+  | 'environmentalImpactScore';
+
+export type HealthMetric = BaseHealthMetric | HealthScoreMetric;
+
+// Health data structures
+export interface BloodPressure {
+  systolic: number;
+  diastolic: number;
+}
+
+export interface Sleep {
+  duration: number;
+  quality: number;
+}
+
+export interface Nutrition {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+export interface Exercise {
+  duration: number;
+  intensity: number;
+  type: string;
+}
+
+export interface RawHealthData {
+  bloodPressure?: number | BloodPressure;
+  sleep?: number | Sleep;
+  nutrition?: number | Nutrition;
+  exercise?: number | Exercise;
+  location?: number | GeoLocation;
+  country?: string | number;
+  state?: string | number;
+  nearestCity?: string | number;
+  onBorder?: string[];
+  [key: string]: any; // Allow other properties for raw data
+}
+
+// Main health data interface
+export interface HealthEnvironmentData {
+  _id: string;
+  id: string;
+  basicHealthId: string;
+  environmentalId: string;
+  scoresId: string;
+  userId: string;
+  date: string;
+  timestamp: string;
+  location: GeoLocation;
+  latitude: number;
+  longitude: number;
+  nearestCity: string;
+  onBorder: string[];
+  country: string;
+  state: string;
+  continent: string;
+  regionId: string;
+  cityId: string;
+  areaId: string;
+  steps: number;
+  heartRate: number;
+  bloodPressure: BloodPressure;
+  temperature: number;
+  respiratoryRate: number;
+  oxygenSaturation: number;
+  glucose: number;
+  weight: number;
+  height: number;
+  bmi: number;
+  sleep: Sleep;
+  stress: number;
+  mood: number;
+  hydration: number;
+  nutrition: Nutrition;
+  exercise: Exercise;
+  activeEnergyBurned: number;
+  activityLevel: ActivityLevel;
+  airQuality: number;
+  environmentalImpact: number;
+  humidity: number;
+  airQualityIndex: number;
+  uvIndex: number;
+  noiseLevel: number;
+  airQualityDescription: string;
+  uvIndexDescription: string;
+  noiseLevelDescription: string;
+  cardioHealthScore: number;
+  respiratoryHealthScore: number;
+  physicalActivityScore: number;
+  environmentalImpactScore: number;
+  clusterSize?: number;
+  originalPoint?: HealthEnvironmentData;
+}
+
+// Health data point for trends
+export interface HealthDataPoint {
+  metric: HealthMetric;
+  value: number;
+  timestamp: string;
+}
+
+export interface HealthTrendData {
+  metric: HealthMetric;
+  data: HealthDataPoint[];
+}
+
+// Context types
+export interface HealthContext {
+  healthData: HealthEnvironmentData[];
+  error: Error | null;
+  loading: boolean;
+  selectedMetric: HealthMetric;
+  setSelectedMetric: (metric: HealthMetric) => void;
+  fetchHealthData: () => Promise<void>;
+}
+
 export interface BasicHealthData {
   _id: string;
   userId: string;
@@ -118,8 +272,8 @@ export interface BasicHealthData {
   heartRate: number;
   weight: number;
   height: number;
-  location: Location;
-  activityLevel: 'sedentary' | 'light' | 'moderate' | 'vigorous';
+  location: GeoLocation;
+  activityLevel: ActivityLevel;
 }
 
 export interface EnvironmentalData {
@@ -135,48 +289,8 @@ export interface EnvironmentalData {
   timestamp: string; // ISO 8601 string
 }
 
-export interface HealthScores {
-  _id: string;
-  userId: string;
-  cardioHealthScore: number;
-  respiratoryHealthScore: number;
-  physicalActivityScore: number;
-  environmentalImpactScore: number;
-  timestamp: string; // ISO 8601 string
-}
-
-export type HealthMetric = keyof Omit<HealthScores, '_id' | 'userId' | 'timestamp'>;
-
-export interface HealthEnvironmentData extends 
-  Omit<BasicHealthData, '_id'>, 
-  Omit<EnvironmentalData, '_id'>,
-  Omit<HealthScores, '_id' | 'userId'> {
-  _id: string;
-  basicHealthId: string;
-  environmentalId: string;
-  scoresId: string;
-  latitude: number;
-  longitude: number;
-  respiratoryRate: number;
-  oxygenSaturation: number;
-  activeEnergyBurned: number;
-  nearestCity: string;
-  onBorder: string[];
-  country: string;
-  state: string;
-  continent: string;
-  airQualityDescription: string;
-  uvIndexDescription: string;
-  noiseLevelDescription: string;
-  bmi: number;
-  environmentalImpact: string;
-  airQuality: string;
-  clusterSize?: number;
-  originalPoint?: HealthEnvironmentData;
-}
-
 export interface HealthState {
-  scores: HealthScores | null;
+  scores: HealthScore | null;
   regionalComparison: RegionalComparison | null;
   data: HealthEnvironmentData[];
   lastSyncTime: string | null; // ISO 8601 string
@@ -219,21 +333,25 @@ export interface NavItem {
 export interface AppRoutes {
   home: string;
   main: string;
+  dashboard: string;
   stats: string;
   profile: string;
   settings: string;
   login: string;
   signup: string;
+  splashPage: string;
   changePassword: string;
   deleteAccount: string;
   globescreen: string;
+  forms: string;
+  DashboardWithErrorBoundary: string;
   [key: string]: string;
 }
 
 export interface DashboardProps {
   user: UserState;
   healthData: HealthEnvironmentData[];
-  healthScores: HealthScores;
+  healthScores: HealthScore;
   regionalComparison: RegionalComparison;
   onPageChange: (newPage: number) => void;
   currentPage: number;
@@ -271,7 +389,7 @@ export interface ServerBasicHealthData {
   heartRate: number;
   weight: number;
   height: number;
-  location: Location;
+  location: GeoLocation;
   activityLevel: 'sedentary' | 'light' | 'moderate' | 'vigorous';
 }
 

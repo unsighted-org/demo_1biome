@@ -28,7 +28,7 @@ const ProfilePage: React.FC = () => {
 
   useEffect(() => {
     if (user) {
-      fetchHealthData(pageNumber);
+      fetchHealthData();
     }
   }, [user, pageNumber, fetchHealthData]);
 

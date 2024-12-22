@@ -1,4 +1,12 @@
-// Add this interface at the top of the file
+import axios from 'axios';
+import type { 
+  HealthKitData, 
+  HealthKitPermissions, 
+  HealthKitSleepAnalysis,
+  OuraRingData,
+} from '@/types/healthDevices';
+import { HealthEnvironmentData } from '@/types/health';
+
 interface WebKitMessageHandler {
   postMessage(message: any): void;
 }
@@ -9,40 +17,10 @@ interface WebKitInterface {
   };
 }
 
-interface HealthKitPermissions {
-  authorized: boolean;
-}
-
 declare global {
   interface Window {
     webkit?: WebKitInterface;
   }
-}
-
-import axios from 'axios';
-
-export interface HealthKitData {
-  steps: number;
-  heartRate: number;
-  activeEnergy: number;
-  sleepAnalysis: any;
-  workout: any;
-}
-
-export interface OuraRingData {
-  readiness: {
-    score: number;
-    temperature: number;
-  };
-  sleep: {
-    duration: number;
-    efficiency: number;
-    deepSleep: number;
-  };
-  activity: {
-    steps: number;
-    calories: number;
-  };
 }
 
 class HealthIntegrationService {
@@ -211,6 +189,28 @@ class HealthIntegrationService {
     }
   }
 
+  async fetchHealthData(startDate: Date, endDate: Date): Promise<HealthEnvironmentData[] | null> {
+    try {
+      // Fetch data from both sources
+      const healthKitData = await this.fetchHealthKitData(startDate, endDate);
+      const ouraData = await this.fetchOuraData(
+        startDate.toISOString().split('T')[0],
+        endDate.toISOString().split('T')[0]
+      );
+
+      // Merge the data
+      const mergedData = this.mergeHealthData(healthKitData, ouraData);
+
+      // Store the merged data
+      await this.storeHealthData(mergedData);
+
+      return [mergedData];
+    } catch (error) {
+      console.error('Error fetching health data:', error);
+      return null;
+    }
+  }
+
   // Data synchronization
   async syncHealthData(): Promise<void> {
     const endDate = new Date();
@@ -243,15 +243,26 @@ class HealthIntegrationService {
       steps: Math.max(healthKitData?.steps ?? 0, ouraData?.activity?.steps ?? 0),
       heartRate: healthKitData?.heartRate ?? 0,
       sleep: {
-        duration: ouraData?.sleep?.duration ?? healthKitData?.sleepAnalysis?.duration ?? 0,
+        duration: ouraData?.sleep?.duration ?? (healthKitData?.sleepAnalysis ? this.calculateSleepDuration(healthKitData.sleepAnalysis) : 0),
         efficiency: ouraData?.sleep?.efficiency ?? 0,
-        deepSleep: ouraData?.sleep?.deepSleep ?? 0
+        deepSleep: ouraData?.sleep?.deep ?? 0
       },
       activity: {
-        calories: Math.max(healthKitData?.activeEnergy ?? 0, ouraData?.activity?.calories ?? 0)
+        calories: Math.max(healthKitData?.activeEnergy ?? 0, ouraData?.activity?.cal_total ?? 0)
       },
       readiness: ouraData?.readiness?.score ?? 100
     };
+  }
+
+  private calculateSleepDuration(sleepAnalysis: HealthKitSleepAnalysis[]): number {
+    return sleepAnalysis.reduce((totalDuration, analysis) => {
+      if (analysis.value === 'ASLEEP') {
+        const start = new Date(analysis.startDate).getTime();
+        const end = new Date(analysis.endDate).getTime();
+        return totalDuration + (end - start) / 1000; // Convert to seconds
+      }
+      return totalDuration;
+    }, 0);
   }
 
   private async storeHealthData(data: any): Promise<void> {
