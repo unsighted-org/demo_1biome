@@ -1,5 +1,4 @@
 import { Map, BarChart as BarChartIcon, Timeline } from '@mui/icons-material';
-import { Box} from '@mui/material';
 import { OrbitControls } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
 import React from 'react';
@@ -77,9 +76,9 @@ const CustomChart: React.FC<CustomChartProps> = ({ data, metrics, chartType }) =
   const render2DView = (): JSX.Element => (
     <ResponsiveContainer width="100%" height="100%">
       <div className="chart-container">
-        <Map style={{ fontSize: 50, marginRight: 20 }} />
-        <BarChartIcon style={{ fontSize: 50, marginRight: 20 }} />
-        <Timeline style={{ fontSize: 50 }} />
+        <Map className="chart-icon" />
+        <BarChartIcon className="chart-icon" />
+        <Timeline className="chart-icon" />
       </div>
     </ResponsiveContainer>
   );
@@ -106,12 +105,12 @@ const CustomChart: React.FC<CustomChartProps> = ({ data, metrics, chartType }) =
   );
 
   return (
-    <Box sx={{ width: '100%', height: '100%', position: 'relative' }}>
+    <div className="chart-wrapper">
       {chartType === 'pie' && renderPieChart()}
       {(chartType === 'line' || chartType === 'bar' || chartType === '1D') && renderLineOrBarChart()}
       {chartType === '2D' && render2DView()}
       {chartType === '3D' && render3DView()}
-    </Box>
+    </div>
   );
 };
 

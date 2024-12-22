@@ -1,4 +1,4 @@
-import { Box, CircularProgress, FormControl, InputLabel, MenuItem, Select, Typography } from '@mui/material';
+import { CircularProgress, FormControl, InputLabel, MenuItem, Select, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import { debounce } from 'lodash';
 import dynamic from 'next/dynamic';
@@ -7,7 +7,6 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useHealth } from '@/contexts/HealthContext';
 import { useLoadingTimeout } from '@/hooks/useLoadingTimeout';
 import { LoadingTimeoutError } from '@/components/LoadingTimeoutError';
-
 import GlobeErrorBoundary from './GlobeErrorBoundary';
 
 import type { HealthEnvironmentData, HealthMetric } from '@/types';
@@ -80,9 +79,9 @@ const AnimatedGlobe: React.FC<AnimatedGlobeProps> = ({ onLocationHover, onPointS
       initial={{ opacity: 0, scale: 0.5 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.5 }}
-      style={{ height: '100%', width: '100%' }}
+      className="globe-visualization"
     >
-      <FormControl fullWidth variant="outlined" sx={{ mb: 2 }}>
+      <FormControl variant="outlined" className="metric-select">
         <InputLabel id="metric-select-label">Select Metric</InputLabel>
         <Select
           labelId="metric-select-label"
@@ -97,20 +96,20 @@ const AnimatedGlobe: React.FC<AnimatedGlobeProps> = ({ onLocationHover, onPointS
           ))}
         </Select>
       </FormControl>
-      <Box sx={{ height: 'calc(100% - 80px)', width: '100%', position: 'relative' }}>
+      <div className="globe-container">
         <GlobeErrorBoundary>
           <EnhancedGlobeVisualization 
             onPointSelect={handlePointSelection} 
             onLocationHover={debouncedHandleLocationHover}
           />
         </GlobeErrorBoundary>
-      </Box>
+      </div>
       {selectedPoint && (
-        <Box sx={{ mt: 2, p: 2, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 2 }}>
+        <div className="selected-point-info">
           <Typography variant="h6">Selected Point</Typography>
           <Typography>Date: {new Date(selectedPoint.timestamp).toLocaleString()}</Typography>
           <Typography>Score: {selectedPoint[displayMetric]}</Typography>
-        </Box>
+        </div>
       )}
     </motion.div>
   );

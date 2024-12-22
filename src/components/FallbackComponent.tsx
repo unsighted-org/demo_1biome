@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, Button } from '@mui/material';
+import { Typography, Button } from '@mui/material';
 import { useRouter } from 'next/router';
 
 interface FallbackProps {
@@ -16,30 +16,22 @@ const FallbackComponent: React.FC<FallbackProps> = ({ error, resetErrorBoundary 
   };
 
   return (
-    <Box
-      display="flex"
-      flexDirection="column"
-      alignItems="center"
-      justifyContent="center"
-      height="100vh"
-      textAlign="center"
-      p={3}
-    >
+    <div className="fallback-container">
       <Typography variant="h4" gutterBottom>
         Oops! Something went wrong.
       </Typography>
-      <Typography variant="body1" paragraph>
+      <Typography variant="body1" className="fallback-message">
         We apologize for the inconvenience. Please try again or return to the home page.
       </Typography>
-      <Typography variant="body2" color="textSecondary" paragraph>
+      <Typography variant="body2" color="textSecondary" className="fallback-message">
         Error: {error.message}
       </Typography>
-      <Box mt={2}>
+      <div className="fallback-button">
         <Button variant="contained" color="primary" onClick={handleReset}>
           Return to Home
         </Button>
-      </Box>
-    </Box>
+      </div>
+    </div>
   );
 };
 

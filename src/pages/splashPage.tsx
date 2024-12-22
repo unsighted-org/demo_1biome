@@ -1,5 +1,5 @@
 import { Email, ArrowForward } from '@mui/icons-material';
-import { Box, TextField, Button, Typography, Alert, InputAdornment, CircularProgress } from '@mui/material';
+import { TextField, Button, Typography, Alert, InputAdornment, CircularProgress } from '@mui/material';
 import { Preload, shaderMaterial } from '@react-three/drei';
 import { Canvas, useFrame, useThree, extend } from '@react-three/fiber';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -213,51 +213,37 @@ const SplashPage: React.FC = () => {
     if (!mounted) return null;
 
     return (
-        <Box sx={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden' }}>
+        <div className="fullscreen-container">
             <Canvas camera={{ position: [0, 0, 50], fov: 60 }}>
                 <Preload all />
                 <SpaceScene />
             </Canvas>
-            <Box
-                sx={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    color: 'white',
-                    textAlign: 'center',
-                    zIndex: 1,
-                }}
-            >
+            <div className="splash-content">
                 <motion.div
-                    initial={{ opacity: 0, y: -50 }}
+                    initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 1 }}
+                    transition={{ duration: 0.8 }}
                 >
-                    <Typography variant="h2" component="h1" sx={{ mb: 2, fontWeight: 'bold' }}>
+                    <Typography variant="h2" className="splash-title">
                         Global Health Navigation
                     </Typography>
-                    <Typography variant="h5" sx={{ mb: 4 }}>
+                </motion.div>
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.5, duration: 0.8 }}
+                >
+                    <Typography variant="h5" className="splash-subtitle">
                         Discover regions that can boost your health and wellbeing
                     </Typography>
-                    <Box 
-                        component="form"
-                        onSubmit={handleSubmit}
-                        sx={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            width: '100%',
-                            maxWidth: '400px',
-                            margin: '0 auto',
-                            padding: 4,
-                        }}
-                    >
+                </motion.div>
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 1, duration: 0.8 }}
+                    className="splash-buttons"
+                >
+                    <form className="splash-form" onSubmit={handleSubmit}>
                         <AnimatePresence>
                             {success ? (
                                 <motion.div
@@ -273,30 +259,12 @@ const SplashPage: React.FC = () => {
                                 <>
                                     {error && <Alert severity="error" sx={{ mb: 2, width: '100%' }}>{error}</Alert>}
                                     <TextField
-                                        fullWidth
-                                        required
-                                        id="email"
                                         label="Email Address"
-                                        name="email"
-                                        autoComplete="email"
+                                        type="email"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
-                                        sx={{
-                                            mb: 2,
-                                            '& .MuiOutlinedInput-root': {
-                                                '& fieldset': { border: 'none' },
-                                                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                                                transition: 'background-color 0.3s',
-                                                '&:hover': {
-                                                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                                                },
-                                                '&.Mui-focused': {
-                                                    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-                                                },
-                                            },
-                                            '& .MuiInputLabel-root': { color: 'rgba(255, 255, 255, 0.7)' },
-                                            '& .MuiInputBase-input': { color: 'white' },
-                                        }}
+                                        required
+                                        fullWidth
                                         InputProps={{
                                             startAdornment: (
                                                 <InputAdornment position="start">
@@ -305,44 +273,31 @@ const SplashPage: React.FC = () => {
                                             ),
                                         }}
                                     />
-                                    <Button
-                                        type="submit"
-                                        fullWidth
-                                        variant="contained"
-                                        disabled={!email || isLoading}
-                                        endIcon={<ArrowForward />}
-                                        sx={{
-                                            mt: 2,
-                                            backgroundColor: 'rgba(0, 255, 255, 0.6)',
-                                            color: 'black',
-                                            '&:hover': { backgroundColor: 'rgba(0, 255, 255, 0.8)' },
-                                            '&:disabled': { backgroundColor: 'rgba(0, 255, 255, 0.3)', color: 'rgba(0, 0, 0, 0.4)' },
-                                        }}
-                                    >
-                                        {isLoading ? <CircularProgress size={24} /> : 'Start Your Health Journey'}
-                                    </Button>
+                                    <div className="splash-form-group">
+                                        <Button
+                                            type="submit"
+                                            variant="contained"
+                                            color="primary"
+                                            fullWidth
+                                            disabled={!email || isLoading}
+                                        >
+                                            {isLoading ? <CircularProgress size={24} /> : 'Start Your Health Journey'}
+                                        </Button>
+                                    </div>
                                 </>
                             )}
                         </AnimatePresence>
-                    </Box>
-                    <Box sx={{ mt: 2 }}>
-                        <NextLink href="/login" passHref>
-                            <Typography
-                                component="a"
-                                sx={{
-                                    color: 'rgba(0, 255, 255, 0.8)',
-                                    textDecoration: 'underline',
-                                    cursor: 'pointer',
-                                    '&:hover': { color: 'rgb(0, 255, 255)' },
-                                }}
-                            >
-                                Already navigating global health? Log in
-                            </Typography>
-                        </NextLink>
-                    </Box>
+                        <div className="splash-form-group">
+                            <NextLink href="/login" passHref>
+                                <Typography className="splash-link">
+                                    Already navigating global health? Log in
+                                </Typography>
+                            </NextLink>
+                        </div>
+                    </form>
                 </motion.div>
-            </Box>
-        </Box>
+            </div>
+        </div>
     );
 };
 

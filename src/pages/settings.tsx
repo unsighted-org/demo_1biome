@@ -2,9 +2,9 @@ import {
   Notifications, Lock, ExitToApp, VpnKey, DeleteForever, Favorite, DirectionsRun, Nature 
 } from '@mui/icons-material';
 import { 
-  Box, List, ListSubheader, ListItem, ListItemIcon, ListItemText, Switch, Divider, 
+  List, ListSubheader, ListItem, ListItemIcon, ListItemText, Switch, Divider, 
   Paper, Typography, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
-  CircularProgress
+  CircularProgress, Snackbar
 } from '@mui/material';
 import { useRouter } from 'next/router';
 import React, { useState, useCallback, useEffect } from 'react';
@@ -114,22 +114,19 @@ const SettingsPage: React.FC = () => {
   };
 
   const renderSettingsContent = (): JSX.Element => (
-    <>
-      <List subheader={<ListSubheader>Notifications</ListSubheader>}>
-        <ListItem>
-          <ListItemIcon><Notifications /></ListItemIcon>
-          <ListItemText primary="Enable Notifications" />
-          <Switch
-            edge="end"
-            disabled={isUpdating}
-            checked={settings?.notificationsEnabled ?? false}
-            onChange={() => handleToggle('notificationsEnabled')}
-          />
-        </ListItem>
+    <div className="settings-container">
+      {isUpdating && (
+        <div className="settings-loading-overlay">
+          <CircularProgress />
+        </div>
+      )}
+      <List>
+        <ListSubheader>Notifications</ListSubheader>
         {(settings?.notificationsEnabled ?? true) && (
           <>
-            <ListItem>
-              <ListItemText primary="Daily Reminder" secondary="Receive daily reminders to log your health data" />
+            <ListItem className="settings-form-field">
+              <ListItemIcon><Notifications /></ListItemIcon>
+              <ListItemText primary="Daily Reminder" />
               <Switch
                 edge="end"
                 disabled={isUpdating}
@@ -137,7 +134,7 @@ const SettingsPage: React.FC = () => {
                 onChange={() => handleToggle('dailyReminder')}
               />
             </ListItem>
-            <ListItem>
+            <ListItem className="settings-form-field">
               <ListItemText primary="Weekly Summary" secondary="Receive weekly health summaries" />
               <Switch
                 edge="end"
@@ -147,7 +144,7 @@ const SettingsPage: React.FC = () => {
               />
             </ListItem>
             <ListSubheader>Notification Preferences</ListSubheader>
-            <ListItem>
+            <ListItem className="settings-form-field">
               <ListItemIcon><Favorite /></ListItemIcon>
               <ListItemText primary="Heart Rate Alerts" />
               <Switch
@@ -157,7 +154,7 @@ const SettingsPage: React.FC = () => {
                 onChange={() => handleNotificationPreferenceToggle('heartRate')}
               />
             </ListItem>
-            <ListItem>
+            <ListItem className="settings-form-field">
               <ListItemIcon><DirectionsRun /></ListItemIcon>
               <ListItemText primary="Step Goal Notifications" />
               <Switch
@@ -167,7 +164,7 @@ const SettingsPage: React.FC = () => {
                 onChange={() => handleNotificationPreferenceToggle('stepGoal')}
               />
             </ListItem>
-            <ListItem>
+            <ListItem className="settings-form-field">
               <ListItemIcon><Nature /></ListItemIcon>
               <ListItemText primary="Environmental Impact Alerts" />
               <Switch
@@ -180,9 +177,9 @@ const SettingsPage: React.FC = () => {
           </>
         )}
       </List>
-      <Divider />
+      <Divider className="settings-section" />
       <List subheader={<ListSubheader>Privacy</ListSubheader>}>
-        <ListItem>
+        <ListItem className="settings-form-field">
           <ListItemIcon><Lock /></ListItemIcon>
           <ListItemText primary="Share Data with Friends" secondary="Allow friends to see your health stats" />
           <Switch
@@ -193,18 +190,18 @@ const SettingsPage: React.FC = () => {
           />
         </ListItem>
       </List>
-      <Divider />
+      <Divider className="settings-section" />
       <List subheader={<ListSubheader>Account</ListSubheader>}>
-        <ListItem button onClick={() => router.push('/change-password')}>
+        <ListItem button onClick={() => router.push('/change-password')} className="settings-form-field">
           <ListItemIcon><VpnKey /></ListItemIcon>
           <ListItemText primary="Change Password" />
         </ListItem>
-        <ListItem button onClick={() => router.push('/delete-account')}>
+        <ListItem button onClick={() => router.push('/delete-account')} className="settings-form-field">
           <ListItemIcon><DeleteForever /></ListItemIcon>
           <ListItemText primary="Delete Account" />
         </ListItem>
       </List>
-    </>
+    </div>
   );
 
   if (hasTimedOut) {
@@ -215,49 +212,34 @@ const SettingsPage: React.FC = () => {
   }
 
   return (
-    <Box sx={{ maxWidth: 600, mx: 'auto', p: 2 }}>
+    <div className="settings-container">
       {isUpdating && (
-        <Box sx={{ 
-          position: 'fixed', 
-          top: 0, 
-          left: 0, 
-          right: 0, 
-          bottom: 0, 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center',
-          bgcolor: 'rgba(0, 0, 0, 0.5)',
-          zIndex: 9999 
-        }}>
+        <div className="settings-loading-overlay">
           <CircularProgress />
-        </Box>
+        </div>
       )}
-      <Paper elevation={3} sx={{ 
-        bgcolor: 'background.paper',
-        backdropFilter: 'blur(10px)',
-        border: '1px solid rgba(255, 255, 255, 0.18)',
-      }}>
+      <Paper elevation={3} className="settings-paper">
         {user ? (
           renderSettingsContent()
         ) : (
-          <Box sx={{ p: 3 }}>
+          <div className="settings-welcome">
             <Typography variant="h6" gutterBottom>Welcome to Settings</Typography>
             <Typography variant="body1">
               Once you&apos;re logged in, you&apos;ll be able to customize your notification preferences,
               privacy settings, and manage your account from here. Start tracking your health
               data to unlock all features!
             </Typography>
-          </Box>
+          </div>
         )}
       </Paper>
-      <Box sx={{ mt: 3 }}>
+      <div className="settings-actions">
         <CustomButton
           title={user ? "Logout" : "Login"}
           onClick={user ? handleLogoutClick : () => router.push('/login')}
           icon={<ExitToApp />}
           fullWidth
         />
-      </Box>
+      </div>
 
       <Dialog
         open={openLogoutDialog}
@@ -280,7 +262,7 @@ const SettingsPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </div>
   );
 };
 
