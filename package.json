@@ -4,9 +4,9 @@
   "private": true,
   "scripts": {
     "test": "jest",
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "node -r ./event-config.js ./node_modules/.bin/next dev",
+    "build": "node -r ./event-config.js ./node_modules/.bin/next build",
+    "start": "node -r ./event-config.js ./node_modules/.bin/next start",
     "lint": "next lint"
   },
   "dependencies": {
