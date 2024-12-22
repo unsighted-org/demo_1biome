@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, Suspense, useState, useRef } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -9,31 +9,25 @@ import {
   Button,
   Grid,
   Paper,
-  Box,
+  Container,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableRow,
-  Container,
 } from '@mui/material';
-import {
-  Refresh,
-  Error,
-  LocationOn,
-  Public
-} from '@mui/icons-material';
+import { Refresh, Error, LocationOn } from '@mui/icons-material';
 
-import { RenderingPipeline } from '@/lib/renderingPipeline';
-import GlobeControls from '@/components/GlobeControls';
 import { useAuth } from '@/contexts/AuthContext';
 import { useHealth } from '@/contexts/HealthContext';
 import { useLoadingTimeout } from '@/hooks/useLoadingTimeout';
 import { LoadingTimeoutError } from '@/components/LoadingTimeoutError';
 import type { LocationInfo } from '@/services/GeocodingService';
-import { HealthTrendChart } from '@/components/HealthTrendChart';
 import notificationService from '@/services/CustomNotificationService';
 import { formatDate, calculateBMI, getActivityLevel, getEnvironmentalImpact, getAirQualityDescription } from '@/lib/helpers';
+import styles from '@/styles/Globe.module.css';
+import GlobeControls from '@/components/GlobeControls';
+import { GlobeTextureType } from '@/hooks/useGlobeTexture';
 
 const LocationPanel = styled(motion(Paper))(({ theme }) => ({
   position: 'absolute',
@@ -55,25 +49,28 @@ const LoadingContainer = styled('div')(({ theme }) => ({
 }));
 
 const AnimatedGlobe = dynamic(
-  () => import('@/components/AnimatedGlobe').then(mod => mod.default),
+  () => import('@/components/AnimatedGlobe'),
   { 
+    ssr: false, 
     loading: () => (
-      <LoadingContainer>
-        <CircularProgress />
-      </LoadingContainer>
-    ),
-    ssr: false
+      <div className={styles['globe-loading-overlay']}>
+        <CircularProgress size={40} />
+        <Typography className={styles['loading-text']}>
+          Loading Globe...
+        </Typography>
+      </div>
+    )
   }
 );
 
 export default function GlobePage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const { healthData, error: healthError, loading: healthLoading } = useHealth();
+  const { healthData, error: healthError, loading: healthLoading, selectedMetric } = useHealth();
   const [selectedLocation, setSelectedLocation] = useState<LocationInfo | null>(null);
   const [error, setError] = useState<Error | null>(null);
   
-  const [currentTexture, setCurrentTexture] = useState<string>('blue-marble');
+  const [currentTexture, setCurrentTexture] = useState<GlobeTextureType>('blue-marble' as GlobeTextureType);
   const [rotation, setRotation] = useState({ x: 0, y: 0 });
 
   const { loading, timedOut } = useLoadingTimeout({
@@ -83,12 +80,12 @@ export default function GlobePage() {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push('/login');
+      router.replace('/login');
     }
   }, [user, authLoading, router]);
 
-  const handleTextureChange = useCallback(async (texture: string) => {
-    setCurrentTexture(texture);
+  const handleTextureChange = useCallback(async (texture: GlobeTextureType) => {
+    setCurrentTexture(texture as GlobeTextureType);
   }, []);
 
   const handleLocationHover = useCallback((location: LocationInfo | null) => {
@@ -135,15 +132,15 @@ export default function GlobePage() {
   }
 
   return (
-    <div style={{ position: 'relative', width: '100vw', height: '100vh' }}>
-      <AnimatedGlobe
+    <div className={styles['globe-visualization']}>
+      <AnimatedGlobe 
         onLocationHover={handleLocationHover}
-        displayMetric="cardioHealthScore"
+        displayMetric="cardioHealthScore" 
       />
       <GlobeControls
         currentTexture={currentTexture}
-        onTextureChange={handleTextureChange}
         rotation={rotation}
+        onTextureChange={handleTextureChange}
       />
       <AnimatePresence>
         {selectedLocation && (
@@ -165,21 +162,9 @@ export default function GlobePage() {
           </LocationPanel>
         )}
       </AnimatePresence>
-      {healthData && (
+      {healthData && healthData.length > 0 && (
         <Container sx={{ p: 2 }}>
           <Grid container spacing={3}>
-            <Grid item xs={12} md={4}>
-              <Paper sx={{ p: 2 }}>
-                <Typography variant="h6" gutterBottom>
-                  Health Trends
-                </Typography>
-                <HealthTrendChart 
-                  data={healthData}
-                  onDataUpdate={(data, metrics) => {
-                    console.log('Health data updated:', data, metrics);
-                  } } selectedMetric={'steps'}                />
-              </Paper>
-            </Grid>
             <Grid item xs={12}>
               <Paper sx={{ p: 2 }}>
                 <Typography variant="h6" gutterBottom>

@@ -1,21 +1,19 @@
 import { useState, useCallback } from 'react';
+import type { Notification, NotificationCreate } from '@/types/notification';
 
-interface Notification {
-  id: string;
-  message: string;
-  type: 'success' | 'error' | 'info' | 'warning';
-  duration?: number;
-  read?: boolean;
-}
 
 export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
 
-  const showNotification = useCallback((notification: Omit<Notification, 'id'>) => {
+  const showNotification = useCallback((notification: NotificationCreate) => {
     const id = Math.random().toString(36).substring(7);
-    setNotifications((prev) => [...prev, { ...notification, id, read: false }]);
-    return id;
+    setNotifications((prev) => [...prev, { 
+      ...notification, 
+      id, 
+      read: false 
+    }]);
+    return id;    return id;
   }, []);
 
   const hideNotification = useCallback((id: string) => {

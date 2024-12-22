@@ -1,16 +1,10 @@
 import React, { createContext, useContext } from 'react';
 import { Alert, Snackbar } from '@mui/material';
 import { useNotifications } from '@/hooks/useNotifications';
+import type { Notification, NotificationContextType } from '@/types/notification';
 
-interface NotificationContextType {
-  showNotification: (notification: {
-    message: string;
-    type: 'success' | 'error' | 'info' | 'warning';
-    duration?: number;
-  }) => string;
-  hideNotification: (id: string) => void;
-  clearNotifications: () => void;
-}
+
+
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 

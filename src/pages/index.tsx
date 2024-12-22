@@ -2,6 +2,8 @@ import { CircularProgress, Typography } from '@mui/material';
 import { useRouter } from 'next/router';
 import React, { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import dynamic from 'next/dynamic';
+
 
 const Home: React.FC = () => {
   const { user, loading } = useAuth();
@@ -16,7 +18,22 @@ const Home: React.FC = () => {
       }
     }
   }, [user, loading, router]);
+  const HealthTrendChart = dynamic(
+    () => import('@/components/HealthTrendChart').then(mod => mod.HealthTrendChart),
+    { 
+      ssr: false,
+      loading: () => (
+        <div className="globe-loading-container">
+          <CircularProgress size={30} />
+          <Typography className="loading-text">
+            Loading Health Data...
+          </Typography>
+        </div>
+      )
+    }
+  );
 
+  
   if (loading) {
     return (
       <div className="loading-container">

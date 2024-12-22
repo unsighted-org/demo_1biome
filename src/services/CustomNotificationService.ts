@@ -24,6 +24,28 @@ class CustomNotificationService {
     }
   }
 
+  success(message: string) {
+    console.log(message);
+    if (typeof window !== 'undefined') {
+      store.dispatch(addNotification({
+        type: 'success',
+        message,
+        timestamp: new Date().toISOString()
+      }));
+    }
+  }
+
+  error(message: string) {
+    console.error(message);
+    if (typeof window !== 'undefined') {
+      store.dispatch(addNotification({
+        type: 'error',
+        message,
+        timestamp: new Date().toISOString()
+      }));
+    }
+  }
+
   async register(): Promise<boolean> {
     try {
       const response = await fetch('/api/notifications/register', {
@@ -40,9 +62,10 @@ class CustomNotificationService {
 
       const data = await response.json();
       this.registered = true;
+      this.success('Successfully registered for notifications');
       return true;
     } catch (error) {
-      console.error('Error registering for notifications:', error);
+      this.error('Error registering for notifications');
       return false;
     }
   }
@@ -62,9 +85,10 @@ class CustomNotificationService {
       }
 
       this.registered = false;
+      this.success('Successfully unregistered from notifications');
       return true;
     } catch (error) {
-      console.error('Error unregistering from notifications:', error);
+      this.error('Error unregistering from notifications');
       return false;
     }
   }
@@ -73,12 +97,10 @@ class CustomNotificationService {
     this.user = user;
     this.token = token;
 
-    // Close existing connection if any
     if (this.eventSource) {
       this.eventSource.close();
     }
 
-    // Initialize Server-Sent Events connection
     this.eventSource = new EventSource(`/api/notifications/stream?token=${token}`);
     
     this.eventSource.onmessage = (event) => {
@@ -86,21 +108,20 @@ class CustomNotificationService {
         const notification = JSON.parse(event.data);
         store.dispatch(addNotification(notification));
       } catch (error) {
-        console.error('Error processing notification:', error);
+        this.error('Error processing notification');
       }
     };
 
     this.eventSource.onerror = (error) => {
-      console.error('SSE connection error:', error);
+      this.error('SSE connection error');
       this.eventSource?.close();
-      // Retry connection after a delay
       setTimeout(() => this.initializeNotifications(user, token), 5000);
     };
   }
 
   async sendNotification(data: HealthEnvironmentData): Promise<void> {
     if (!this.registered) {
-      console.warn('Notifications not registered');
+      this.error('Notifications not registered');
       return;
     }
 
@@ -117,8 +138,9 @@ class CustomNotificationService {
       if (!response.ok) {
         throw new Error('Failed to send notification');
       }
+      this.success('Notification sent successfully');
     } catch (error) {
-      console.error('Error sending notification:', error);
+      this.error('Error sending notification');
       throw error;
     }
   }
@@ -148,8 +170,6 @@ class CustomNotificationService {
   }
 }
 
-// Create a singleton instance
 const notificationService = new CustomNotificationService();
 
-// Export the singleton instance instead of the class
 export default notificationService;

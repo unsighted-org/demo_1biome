@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import * as THREE from 'three';
 import { RenderingPipeline } from '@/lib/renderingPipeline';
-import { notificationService } from '@/services/CustomNotificationService';
+import notificationService from '@/services/CustomNotificationService';
 
 export type GlobeTextureType = 'blue-marble' | 'day' | 'night' | 'topology' | 'water' | 'satellite';
 
@@ -16,31 +16,31 @@ export const TEXTURE_CONFIGS: TextureConfig[] = [
   {
     name: 'blue-marble',
     label: 'Blue Marble',
-    path: '/textures/blue-marble.jpg',
+    path: '/textures/earth-blue-marble.jpg',
     description: 'NASA\'s iconic Blue Marble view of Earth'
   },
   {
     name: 'day',
     label: 'Daytime',
-    path: '/textures/day.jpg',
+    path: '/earth-day.jpg',
     description: 'Detailed daytime view of Earth\'s surface'
   },
   {
     name: 'night',
     label: 'Night Lights',
-    path: '/textures/night.jpg',
+    path: '/earth-night.jpg',
     description: 'Earth\'s city lights at night'
   },
   {
     name: 'topology',
     label: 'Topology',
-    path: '/textures/topology.jpg',
+    path: '/earth-topology.png',
     description: 'Topographical map showing Earth\'s terrain'
   },
   {
     name: 'water',
     label: 'Ocean Currents',
-    path: '/textures/water.jpg',
+    path: '/earth-water.jpg',
     description: 'Visualization of ocean currents and temperatures'
   },
   {
@@ -59,7 +59,9 @@ export function useGlobeTexture(renderingPipeline?: RenderingPipeline) {
   const loadTexture = useCallback(async (textureName: GlobeTextureType) => {
     const config = TEXTURE_CONFIGS.find(t => t.name === textureName);
     if (!config) {
-      setError(`Invalid texture type: ${textureName}`);
+      const errorMsg = `Invalid texture type: ${textureName}`;
+      setError(errorMsg);
+      notificationService.error(errorMsg);
       return;
     }
 
@@ -70,23 +72,25 @@ export function useGlobeTexture(renderingPipeline?: RenderingPipeline) {
       const loader = new THREE.TextureLoader();
       const texture = await loader.loadAsync(config.path);
       
-      if (renderingPipeline) {
+      if (renderingPipeline && textureName !== 'satellite') {
         renderingPipeline.setTextureType(textureName);
       }
 
       setCurrentTexture(textureName);
-      notificationService.success(`Switched to ${config.label} view`);
-    } catch (err) {
-      const errorMessage = `Failed to load ${config.label} texture`;
-      setError(errorMessage);
-      notificationService.error(errorMessage);
+      notificationService.success(`Successfully loaded ${config.label} view`);
+    } catch (error) {
+      const errorMsg = `Failed to load ${config.label} texture`;
+      setError(errorMsg);
+      notificationService.error(errorMsg);
     } finally {
       setTextureLoading(false);
     }
   }, [renderingPipeline]);
 
   useEffect(() => {
-    loadTexture(currentTexture);
+    loadTexture(currentTexture).catch(error => {
+      notificationService.error(`Initial texture load failed: ${error.message}`);
+    });
   }, []);
 
   return {

@@ -9,7 +9,8 @@ const navItems = [
   { label: 'Dashboard', route: 'dashboard', icon: <Dashboard /> },
   { label: 'Profile', route: 'profile', icon: <Person /> },
   { label: 'Settings', route: 'settings', icon: <Settings /> },
-  { label: 'Globe', route: 'globescreen', icon: <Public /> }
+  { label: 'Globe', route: 'globescreen', icon: <Public /> },
+  
 ] as const;
 
 interface NavigationProps {

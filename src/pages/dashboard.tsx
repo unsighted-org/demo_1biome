@@ -52,7 +52,7 @@ const Dashboard: React.FC = () => {
   }, [user, handleRefresh]);
 
   const QuickStatCard = ({ title, value, trend }: { title: string; value: string; trend?: 'up' | 'down' }) => (
-    <Card sx={{ height: '100%', bgcolor: alpha(theme.palette.primary.main, 0.04) } as SxProps<Theme>}>
+    <Card sx={{ height: '100%' } as SxProps<Theme>}>
       <CardContent>
         <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
           <Typography variant="subtitle2" color="text.secondary">
@@ -96,7 +96,7 @@ const Dashboard: React.FC = () => {
 
         <Grid container spacing={3}>
           <Grid item xs={12} md={8}>
-            <Paper elevation={0} sx={{ p: 3, height: '100%', bgcolor: alpha(theme.palette.primary.main, 0.02) } as SxProps<Theme>}>
+            <Paper elevation={0} sx={{ p: 3, height: '100%' } as SxProps<Theme>}>
               <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
                 <Typography variant="h6" component="h2">
                   Health Trends
@@ -147,7 +147,7 @@ const Dashboard: React.FC = () => {
           </Grid>
 
           <Grid item xs={12}>
-            <Paper elevation={0} sx={{ p: 3, bgcolor: alpha(theme.palette.primary.main, 0.02) } as SxProps<Theme>}>
+            <Paper elevation={0} sx={{ p: 3 } as SxProps<Theme>}>
               <Typography variant="h6" component="h2" sx={{ mb: 3 } as SxProps<Theme>}>
                 Recent Activity
               </Typography>

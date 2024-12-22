@@ -19,7 +19,7 @@ const SceneSetup: React.FC = () => {
     gl.setPixelRatio(window.devicePixelRatio);
     gl.toneMapping = THREE.ACESFilmicToneMapping;
     gl.toneMappingExposure = 1;
-    gl.outputEncoding = THREE.sRGBEncoding;
+    gl.outputColorSpace = THREE.SRGBColorSpace;
 
     // Configure camera
     camera.near = 0.1;

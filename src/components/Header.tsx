@@ -6,13 +6,22 @@ interface HeaderProps {
   drawerWidth: number;
   mobileOpen: boolean;
   onDrawerToggle: () => void;
+  headerHeight: number;
+  elevated: boolean;
 }
 
-const Header = ({ isMobile, mobileOpen, onDrawerToggle }: HeaderProps) => {
+const Header = ({ 
+  isMobile, 
+  mobileOpen, 
+  onDrawerToggle, 
+  headerHeight,
+  elevated 
+}: HeaderProps) => {
   return (
     <AppBar 
       position="fixed" 
-      className={`app-header ${!isMobile ? 'with-drawer' : ''}`}
+      className={`app-header ${!isMobile ? 'with-drawer' : ''} ${elevated ? 'elevated' : ''}`}
+      sx={{ height: headerHeight }}
     >
       <Toolbar>
         {isMobile && (

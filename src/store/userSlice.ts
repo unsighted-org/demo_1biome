@@ -1,4 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
+import type { Notification, NotificationCreate } from '@/types/notification';
 
 import type { UserState, UserSettings } from '@/types';
 import type { PayloadAction } from '@reduxjs/toolkit';
@@ -7,12 +8,6 @@ interface ExtendedUserState extends UserState {
   notifications: Notification[];
 }
 
-interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  read: boolean;
-}
 
 const initialState: ExtendedUserState = {
   _id: '',
@@ -82,11 +77,11 @@ const userSlice = createSlice({
       state.settings.connectedDevices = state.settings.connectedDevices.filter((id) => id !== action.payload);
     },
     clearUser: () => initialState,
-    addNotification: (state, action: PayloadAction<Omit<Notification, 'id' | 'read'>>) => {
+    addNotification: (state, action: PayloadAction<NotificationCreate>) => {
       state.notifications.push({
         id: Date.now().toString(),
         ...action.payload,
-        read: false,
+        read: false
       });
     },
     markNotificationAsRead: (state, action: PayloadAction<string>) => {

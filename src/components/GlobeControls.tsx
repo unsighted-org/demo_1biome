@@ -1,3 +1,4 @@
+// GlobeControls.tsx
 import React, { useCallback } from 'react';
 import { styled } from '@mui/material/styles';
 import {
@@ -7,6 +8,7 @@ import {
   Paper,
 } from '@mui/material';
 import CompassIcon from '@mui/icons-material/Explore';
+import { GlobeTextureType } from '@/hooks/useGlobeTexture';
 
 const ControlPanel = styled(Paper)(({ theme }) => ({
   position: 'absolute',
@@ -42,18 +44,18 @@ const Compass = styled(Box)({
   },
 });
 
-interface GlobeControlsProps {
+export interface GlobeControlsProps {
   currentTexture: string;
-  onTextureChange: (texture: string) => void;
+  onTextureChange: (texture: GlobeTextureType) => Promise<void>
   rotation: { x: number; y: number };
 }
 
 const textureOptions = [
   { value: 'blue-marble', label: 'Blue Marble' },
-  { value: 'day', label: 'Day' },
-  { value: 'night', label: 'Night' },
-  { value: 'topology', label: 'Topology' },
-  { value: 'water', label: 'Water' },
+  { value: 'day',         label: 'Day' },
+  { value: 'night',       label: 'Night' },
+  { value: 'topology',    label: 'Topology' },
+  { value: 'water',       label: 'Water' },
 ];
 
 const GlobeControls: React.FC<GlobeControlsProps> = ({
@@ -63,11 +65,14 @@ const GlobeControls: React.FC<GlobeControlsProps> = ({
 }) => {
   const compassRotation = -rotation.y * (180 / Math.PI);
 
-  const handleTextureChange = useCallback((event: React.MouseEvent<HTMLElement>, value: string | null) => {
-    if (value) {
-      onTextureChange(value);
-    }
-  }, [onTextureChange]);
+  const handleTextureChange = useCallback(
+    (_: React.MouseEvent<HTMLElement>, value: string | null) => {
+      if (value) {
+        onTextureChange(value as GlobeTextureType);
+      }
+    },
+    [onTextureChange]
+  );
 
   return (
     <>
@@ -91,12 +96,14 @@ const GlobeControls: React.FC<GlobeControlsProps> = ({
         <Compass>
           <CompassIcon
             className="compass-arrow"
-            style={{ transform: `translate(-50%, -50%) rotate(${compassRotation}deg)` }}
+            style={{
+              transform: `translate(-50%, -50%) rotate(${compassRotation}deg)`,
+            }}
             fontSize="large"
           />
           <Box
             component="img"
-            src="/compass-rose.png"
+            src="/compass-rose.svg"
             alt="Compass Rose"
             sx={{
               width: '100%',
