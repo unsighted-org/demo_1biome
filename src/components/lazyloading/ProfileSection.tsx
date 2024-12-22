@@ -10,7 +10,7 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({ user }) => {
   if (!user) return null;
 
   return (
-    <Box display="flex" flexDirection="column" alignItems="center">
+    <Box display="flex" flexDirection="column" alignItems="center" component="div">
       <Avatar src={user.avatarUrl || ''} sx={{ width: 100, height: 100, mb: 2 }} />
       <Typography variant="h5">{user.name}</Typography>
       <Typography variant="body2" color="textSecondary">{user.email}</Typography>
