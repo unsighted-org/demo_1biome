@@ -1,135 +1,53 @@
-import type { HealthEnvironmentData, ConnectedDevice, UserSignupData } from '@/types';
-import type { Socket } from 'socket.io-client';
-import { io } from 'socket.io-client';
-import {
-  CACHE_DURATION,
-  MAX_CACHE_AGE,
-  MAX_CACHE_SIZE,
-  MAX_PAGES,
-  MAX_DATA_POINTS_PER_PAGE,
-  MAX_DATA_POINTS_PER_SECOND,
-  MAX_RETRIES,
-  INITIAL_RETRY_DELAY,
-  API_BASE_URL,
-  getCurrentBaseUrl
-} from '@/constants';
+import { HealthEnvironmentData } from '@/types';
+import { AppleHealthAdapter, OuraRingAdapter, HealthDataMerger } from '@/adapters/healthDataAdapter';
+import { healthIntegrationService } from './healthIntegrations';
+import { API_BASE_URL, getCurrentBaseUrl } from '@/constants';
+import io, { Socket } from 'socket.io-client';
 
 interface PaginatedHealthData {
   data: HealthEnvironmentData[];
-  totalPages: number;
   currentPage: number;
+  totalPages: number;
 }
 
 class HealthService {
+  private static instance: HealthService;
   private socket: Socket | null = null;
   private token: string | null = null;
+  private appleHealthAdapter: AppleHealthAdapter;
+  private ouraAdapter: OuraRingAdapter;
   private cachedHealthData: Map<number, { data: HealthEnvironmentData[]; timestamp: number }> = new Map();
-  private lastRequestTime: number = 0;
+  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
   private requestCount: number = 0;
   private subscribers: Set<(data: HealthEnvironmentData) => void> = new Set();
 
+  private constructor() {
+    this.appleHealthAdapter = new AppleHealthAdapter();
+    this.ouraAdapter = new OuraRingAdapter();
+  }
+
+  static getInstance(): HealthService {
+    if (!HealthService.instance) {
+      HealthService.instance = new HealthService();
+    }
+    return HealthService.instance;
+  }
+
   setToken(token: string): void {
     this.token = token;
+    this.initializeSocket();
   }
 
-  private getToken(): string | null {
-    return this.token;
-  }
+  private initializeSocket(): void {
+    if (!this.token) return;
 
-  private getApiUrl(): string {
-    return typeof window === 'undefined'
-      ? `${API_BASE_URL}/api/health-data`
-      : '/api/health-data';
-  }
-
-  private isCacheValid(timestamp: number): boolean {
-    const now = Date.now();
-    return now - timestamp < CACHE_DURATION && now - timestamp < MAX_CACHE_AGE;
-  }
-
-  private async rateLimitedFetch(url: string, options: RequestInit = {}): Promise<Response> {
-    const now = Date.now();
-    const timeSinceLastRequest = now - this.lastRequestTime;
-    
-    if (timeSinceLastRequest < 1000) {
-      this.requestCount++;
-      if (this.requestCount > MAX_DATA_POINTS_PER_SECOND) {
-        await new Promise(resolve => setTimeout(resolve, 1000 - timeSinceLastRequest));
-        this.requestCount = 1;
-      }
-    } else {
-      this.requestCount = 1;
-    }
-    
-    this.lastRequestTime = Date.now();
-    return this.fetchWithRetry(url, options);
-  }
-
-  private async fetchWithRetry(url: string, options: RequestInit = {}, retries: number = 0): Promise<Response> {
-    try {
-      const response = await this.fetchWithAuth(url, options);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return response;
-    } catch (error) {
-      if (retries < MAX_RETRIES) {
-        const delay = INITIAL_RETRY_DELAY * Math.pow(2, retries);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        return this.fetchWithRetry(url, options, retries + 1);
-      }
-      throw error;
-    }
-  }
-
-  private async fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
-    const token = this.getToken();
-    if (!token) {
-      throw new Error('Token not found. Cannot make authenticated request.');
-    }
-    return fetch(url, {
-      ...options,
-      headers: {
-        ...options.headers,
-        Authorization: `Bearer ${token}`,
-      },
+    this.socket = io(getCurrentBaseUrl(), {
+      auth: { token: this.token }
     });
-  }
 
-  private updateCacheWithNewData(newData: HealthEnvironmentData): void {
-    const pageEntries = Array.from(this.cachedHealthData.entries());
-    const pageWithData = pageEntries.find(([_, cachedData]) => 
-      cachedData.data.some(item => item.timestamp === newData.timestamp)
-    );
-
-    if (pageWithData) {
-      const [page, cachedData] = pageWithData;
-      const updatedData = {
-        data: cachedData.data.map(item => 
-          item.timestamp === newData.timestamp ? newData : item
-        ),
-        timestamp: Date.now()
-      };
-      this.cachedHealthData.set(page, updatedData);
-      this.notifySubscribers(newData);
-    }
-
-    this.pruneCache();
-  }
-
-  private pruneCache(): void {
-    if (this.cachedHealthData.size <= MAX_CACHE_SIZE) return;
-
-    const oldestEntry = Array.from(this.cachedHealthData.entries())
-      .reduce((oldest, current) => 
-        current[1].timestamp < oldest[1].timestamp ? current : oldest
-      );
-
-    this.cachedHealthData.delete(oldestEntry[0]);
-  }
-
-  private notifySubscribers(data: HealthEnvironmentData): void {
-    this.subscribers.forEach(callback => callback(data));
+    this.socket.on('healthUpdate', (data: HealthEnvironmentData) => {
+      this.notifySubscribers(data);
+    });
   }
 
   subscribe(callback: (data: HealthEnvironmentData) => void): () => void {
@@ -137,119 +55,89 @@ class HealthService {
     return () => this.subscribers.delete(callback);
   }
 
-  async getHealthDataForLastWeek(): Promise<HealthEnvironmentData[]> {
-    const cachedFirstPage = this.cachedHealthData.get(1);
-    if (cachedFirstPage && this.isCacheValid(cachedFirstPage.timestamp)) {
-      return cachedFirstPage.data;
+  private notifySubscribers(data: HealthEnvironmentData): void {
+    this.subscribers.forEach(callback => callback(data));
+  }
+
+  async getPaginatedHealthData(page: number): Promise<PaginatedHealthData> {
+    if (!this.token) {
+      throw new Error('Authentication token not set');
+    }
+
+    const cached = this.cachedHealthData.get(page);
+    if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
+      return {
+        data: cached.data,
+        currentPage: page,
+        totalPages: Math.ceil(cached.data.length / 10)
+      };
     }
 
     try {
-      const response = await this.rateLimitedFetch(this.getApiUrl());
-      const { data } = await response.json() as PaginatedHealthData;
-      this.cachedHealthData.set(1, { data, timestamp: Date.now() });
+      const response = await fetch(`${API_BASE_URL}/health/data?page=${page}`, {
+        headers: {
+          Authorization: `Bearer ${this.token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch health data');
+      }
+
+      const data = await response.json();
+      this.cachedHealthData.set(page, { data: data.data, timestamp: Date.now() });
+      
       return data;
     } catch (error) {
-      console.error('Failed to fetch health data:', error);
+      console.error('Error fetching paginated health data:', error);
       throw error;
     }
   }
 
-  async getPaginatedHealthData(page: number = 1): Promise<PaginatedHealthData> {
-    if (page < 1 || page > MAX_PAGES) {
-      throw new Error(`Page number must be between 1 and ${MAX_PAGES}`);
-    }
-
-    const cachedPage = this.cachedHealthData.get(page);
-    if (cachedPage && this.isCacheValid(cachedPage.timestamp)) {
-      return { data: cachedPage.data, totalPages: MAX_PAGES, currentPage: page };
+  async refreshHealthData(): Promise<void> {
+    if (!this.token) {
+      throw new Error('Authentication token not set');
     }
 
     try {
-      const response = await this.rateLimitedFetch(`${this.getApiUrl()}?page=${page}`);
-      const paginatedData = await response.json() as PaginatedHealthData;
-      
-      if (paginatedData.data.length > MAX_DATA_POINTS_PER_PAGE) {
-        paginatedData.data = paginatedData.data.slice(0, MAX_DATA_POINTS_PER_PAGE);
-      }
-      
-      this.cachedHealthData.set(page, { data: paginatedData.data, timestamp: Date.now() });
-      return paginatedData;
-    } catch (error) {
-      console.error('Failed to fetch paginated health data:', error);
-      throw error;
-    }
-  }
+      // Get data from different sources
+      const [appleHealthData, ouraData] = await Promise.all([
+        healthIntegrationService.fetchHealthKitData(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), new Date()),
+        healthIntegrationService.fetchOuraData(
+          new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          new Date().toISOString().split('T')[0]
+        )
+      ]);
 
-  async submitUserData(data: Omit<UserSignupData, 'email' | 'password'>): Promise<void> {
-    try {
-      const response = await this.rateLimitedFetch(`${this.getApiUrl()}/user-data`, {
+      // Transform data using adapters
+      const [transformedAppleHealth, transformedOura] = await Promise.all([
+        appleHealthData ? this.appleHealthAdapter.transform(appleHealthData) : [],
+        ouraData ? this.ouraAdapter.transform(ouraData) : []
+      ]);
+
+      // Merge and normalize data
+      const mergedData = await HealthDataMerger.mergeData([
+        transformedAppleHealth,
+        transformedOura
+      ]);
+
+      // Send merged data to backend
+      await fetch(`${API_BASE_URL}/health/sync`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.token}`
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ data: mergedData })
       });
-      if (!response.ok) throw new Error('Failed to submit user data');
+
+      // Clear cache to force refresh
+      this.cachedHealthData.clear();
+      
+      // Notify subscribers of new data
+      mergedData.forEach(data => this.notifySubscribers(data));
     } catch (error) {
-      console.error('Failed to submit user data:', error);
-      throw error;
-    }
-  }
-
-  async getConnectedDevices(): Promise<ConnectedDevice[]> {
-    try {
-      const response = await this.rateLimitedFetch(`${this.getApiUrl()}/devices`);
-      if (!response.ok) throw new Error('Failed to fetch connected devices');
-      return await response.json() as ConnectedDevice[];
-    } catch (error) {
-      console.error('Failed to fetch connected devices:', error);
-      throw error;
-    }
-  }
-
-  async subscribeToHealthData(
-    callback: (data: HealthEnvironmentData) => void,
-    errorCallback: (error: Error) => void
-  ): Promise<(() => void) | null> {
-    if (typeof window === 'undefined') return null;
-    
-    const token = this.getToken();
-    if (!token) {
-      errorCallback(new Error('Token not found. Cannot subscribe to health data.'));
-      return null;
-    }
-
-    const baseUrl = getCurrentBaseUrl();
-    this.socket = io(baseUrl, {
-      path: '/api/socketio',
-      auth: { token },
-    });
-
-    this.socket.on('health-data', (data: HealthEnvironmentData) => {
-      this.updateCacheWithNewData(data);
-      callback(data);
-    });
-
-    this.socket.on('connect_error', (error: Error) => {
-      errorCallback(error);
-    });
-
-    return () => {
-      if (this.socket) {
-        this.socket.disconnect();
-        this.socket = null;
-      }
-    };
-  }
-
-  async syncDeviceData(deviceId: string): Promise<void> {
-    try {
-      const response = await this.rateLimitedFetch(`${this.getApiUrl()}/devices/${deviceId}/sync`, {
-        method: 'POST',
-      });
-      if (!response.ok) throw new Error('Failed to sync device data');
-    } catch (error) {
-      console.error('Failed to sync device data:', error);
+      console.error('Error refreshing health data:', error);
       throw error;
     }
   }
@@ -257,7 +145,14 @@ class HealthService {
   clearCache(): void {
     this.cachedHealthData.clear();
   }
+
+  disconnect(): void {
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
+    }
+  }
 }
 
-const healthServiceInstance = new HealthService();
+const healthServiceInstance = HealthService.getInstance();
 export default healthServiceInstance;

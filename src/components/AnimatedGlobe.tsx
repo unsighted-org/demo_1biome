@@ -1,118 +1,123 @@
 import { CircularProgress, FormControl, InputLabel, MenuItem, Select, Typography } from '@mui/material';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { debounce } from 'lodash';
 import dynamic from 'next/dynamic';
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 
 import { useHealth } from '@/contexts/HealthContext';
-import { useLoadingTimeout } from '@/hooks/useLoadingTimeout';
-import { LoadingTimeoutError } from '@/components/LoadingTimeoutError';
-import GlobeErrorBoundary from './GlobeErrorBoundary';
-
+import { getRegionInfo } from '@/lib/helpers';
 import type { HealthEnvironmentData, HealthMetric } from '@/types';
-import type { SelectChangeEvent } from '@mui/material';
 
-const EnhancedGlobeVisualization = dynamic(() => import('./EnhancedGlobeVisualization'), {
-  ssr: false,
-  loading: () => <CircularProgress />
-});
+// Dynamically import the EnhancedGlobeVisualization component
+const EnhancedGlobeVisualization = dynamic(
+  () => import('./EnhancedGlobeVisualization'),
+  { ssr: false }
+);
+
+const GlobeErrorBoundary = dynamic(
+  () => import('./GlobeErrorBoundary'),
+  { ssr: false }
+);
 
 const HOVER_DEBOUNCE_TIME = 200; // ms
 
 interface AnimatedGlobeProps {
-  onLocationHover: (location: { name: string; country: string; state: string; continent: string } | null) => void;
-  onPointSelect: (point: HealthEnvironmentData | null) => void;
+  onLocationHover: (location: { name: string; country: string; state: string; continent: string; } | null) => void;
+  displayMetric: HealthMetric;
 }
 
-const AnimatedGlobe: React.FC<AnimatedGlobeProps> = ({ onLocationHover, onPointSelect }) => {
-  const { selectedMetrics, displayMetric, setDisplayMetric, error } = useHealth();
-  const [selectedPoint,] = useState<HealthEnvironmentData | null>(null);
-  const [loading, setLoading] = useState(true);
+export const AnimatedGlobe: React.FC<AnimatedGlobeProps> = ({ onLocationHover, displayMetric }) => {
   const { healthData } = useHealth();
+  const [error, setError] = useState<Error | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isInteracting, setIsInteracting] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [center, setCenter] = useState({ latitude: 0, longitude: 0 });
 
-  const hasTimedOut = useLoadingTimeout({ 
-    isLoading: loading,
-    timeoutMs: 20000 // 20 seconds for 3D globe initialization
-  });
-
-  useEffect(() => {
-    // Set loading to false when globe is ready
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 2000); // Assuming initial load takes about 2 seconds
-
-    return () => clearTimeout(timer);
+  const handleZoomChange = useCallback((newZoom: number) => {
+    setZoom(newZoom);
   }, []);
 
-  if (hasTimedOut) {
+  const handleCameraChange = useCallback((newCenter: { latitude: number; longitude: number; }, newZoom: number) => {
+    setCenter(newCenter);
+    setZoom(newZoom);
+  }, []);
+
+  const handleLocationHover = useCallback(async (location: { latitude: number; longitude: number; } | null) => {
+    if (!location) {
+      onLocationHover(null);
+      return;
+    }
+
+    try {
+      const regionInfo = await getRegionInfo(location.latitude, location.longitude);
+      onLocationHover({
+        name: regionInfo.city || 'Unknown',
+        country: regionInfo.country || 'Unknown',
+        state: regionInfo.state || 'Unknown',
+        continent: regionInfo.continent || 'Unknown'
+      });
+    } catch (error) {
+      console.error('Error getting region info:', error);
+      onLocationHover(null);
+    }
+  }, [onLocationHover]);
+
+  const debouncedHandleLocationHover = useMemo(
+    () => debounce(handleLocationHover, HOVER_DEBOUNCE_TIME),
+    [handleLocationHover]
+  );
+
+  useEffect(() => {
+    return () => {
+      debouncedHandleLocationHover.cancel();
+    };
+  }, [debouncedHandleLocationHover]);
+
+  if (error) {
     return (
-      <LoadingTimeoutError 
-        message="3D Globe visualization is taking longer than expected to load." 
-        onRetry={() => setLoading(false)}
-      />
+      <Typography color="error" variant="h6">
+        Error loading globe visualization: {error.message}
+      </Typography>
     );
   }
 
-  if (loading) {
-    return <CircularProgress />;
-  }
-
-  const handleMetricChange = useCallback((event: SelectChangeEvent<HealthMetric>) => {
-    setDisplayMetric(event.target.value as HealthMetric);
-  }, [setDisplayMetric]);
-
-  const handlePointSelection = useCallback((point: HealthEnvironmentData | null): void => {
-    onPointSelect(point);
-  }, [onPointSelect]);
-
-  const debouncedHandleLocationHover = useMemo(
-    () => debounce(onLocationHover, HOVER_DEBOUNCE_TIME),
-    [onLocationHover]
-  );
-
-  if (error) {
-    return <Typography color="error">Error loading globe data: {error}</Typography>;
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+        <CircularProgress />
+      </div>
+    );
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.5 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.5 }}
-      className="globe-visualization"
-    >
-      <FormControl variant="outlined" className="metric-select">
-        <InputLabel id="metric-select-label">Select Metric</InputLabel>
-        <Select
-          labelId="metric-select-label"
-          value={displayMetric}
-          onChange={handleMetricChange}
-          label="Select Metric"
-        >
-          {selectedMetrics.map((metric) => (
-            <MenuItem key={metric} value={metric}>
-              {metric.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase())}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-      <div className="globe-container">
+    <div className="globe-container">
+      <div className="globe-visualization">
         <GlobeErrorBoundary>
           <EnhancedGlobeVisualization 
-            onPointSelect={handlePointSelection} 
             onLocationHover={debouncedHandleLocationHover}
+            isInteracting={isInteracting}
+            onZoomChange={handleZoomChange}
+            onCameraChange={handleCameraChange}
+            displayMetric={displayMetric}
           />
         </GlobeErrorBoundary>
       </div>
-      {selectedPoint && (
-        <div className="selected-point-info">
-          <Typography variant="h6">Selected Point</Typography>
-          <Typography>Date: {new Date(selectedPoint.timestamp).toLocaleString()}</Typography>
-          <Typography>Score: {selectedPoint[displayMetric]}</Typography>
-        </div>
-      )}
-    </motion.div>
+      <AnimatePresence>
+        {isInteracting && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="interaction-overlay"
+          >
+            <p>Zoom: {zoom.toFixed(2)}</p>
+            <p>Center: {center.latitude.toFixed(2)}, {center.longitude.toFixed(2)}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 };
 
-export default React.memo(AnimatedGlobe);
+export default AnimatedGlobe;

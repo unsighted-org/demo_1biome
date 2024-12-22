@@ -5,7 +5,7 @@ import { Canvas } from '@react-three/fiber';
 import { AnimatePresence, motion } from 'framer-motion';
 import NextLink from 'next/link';
 import { useRouter } from 'next/router';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 import { SpaceScene } from '@/components/SpaceScene';
 import { useAuth } from '@/contexts/AuthContext';
@@ -22,13 +22,25 @@ const validateEmail = (email: string): boolean => {
 const LoginPage: React.FC = () => {
   const theme: Theme = useTheme();
   const router = useRouter();
-  const {login } = useAuth();
+  const { login, loading: authLoading, user } = useAuth();
   const { showNotification } = useNotificationContext();
   const [formData, setFormData] = useState<UserLoginData>({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
 
+  // Redirect if already authenticated
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = localStorage.getItem('token');
+      if (token || user) {
+        await router.replace('/globescreen');
+      }
+    };
+    checkAuth();
+  }, [router, user]);
+
   const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
+    if (loading || authLoading) return;
     setLoading(true);
 
     if (!validateEmail(formData.email)) {
@@ -46,6 +58,7 @@ const LoginPage: React.FC = () => {
         message: 'Successfully logged in!',
         type: 'success',
       });
+      // Don't set loading false here, let auth context handle it
     } catch (err: any) {
       let errorMessage = 'Invalid email or password';
       if (err?.response?.status === 404) {
@@ -173,7 +186,7 @@ const LoginPage: React.FC = () => {
             <Button
               type="submit"
               variant="contained"
-              disabled={loading}
+              disabled={loading || authLoading}
               sx={{
                 mt: 2,
                 width: '100%',
@@ -186,7 +199,7 @@ const LoginPage: React.FC = () => {
                 },
               }}
             >
-              {loading ? (
+              {loading || authLoading ? (
                 <CircularProgress size={24} color="inherit" />
               ) : (
                 <>

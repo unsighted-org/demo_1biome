@@ -1,4 +1,5 @@
 import { LazyLoadManager } from './lazyLoader';
+import * as THREE from 'three';
 import { monitoringManager } from '@/MonitoringSystem/monitoringManager';
 import { MetricCategory, MetricType, MetricUnit } from '@/MonitoringSystem/constants/metrics';
 
@@ -15,18 +16,40 @@ interface DataStreamConfig {
   maxRetries: number;
 }
 
+interface PerformanceConfig {
+  fpsThreshold: number;
+  drawCallThreshold: number;
+  memoryThreshold: number;
+  pointCountThreshold: number;
+}
+
+interface OptimizationLevel {
+  maxPoints: number;
+  chunkSize: number;
+  interval: number;
+  quality: 'high' | 'medium' | 'low';
+}
+
 class OptimizationManager {
   private static instance: OptimizationManager;
   private lazyLoadManager: LazyLoadManager;
   private activeStreams: Map<string, AbortController>;
   private loadingChunks: Set<string>;
   private memoryThreshold: number;
+  private renderer?: THREE.WebGLRenderer;
+  private currentOptimizationLevel: OptimizationLevel;
 
   private constructor() {
     this.lazyLoadManager = LazyLoadManager.getInstance();
     this.activeStreams = new Map();
     this.loadingChunks = new Set();
     this.memoryThreshold = 50 * 1024 * 1024; // 50MB default
+    this.currentOptimizationLevel = {
+      maxPoints: 10000,
+      chunkSize: 100,
+      interval: 50,
+      quality: 'high'
+    };
     this.initializeMemoryMonitoring();
   }
 
@@ -59,6 +82,125 @@ class OptimizationManager {
 
     // Clear non-essential caches
     this.clearNonEssentialCache();
+  }
+
+  setRenderer(renderer: THREE.WebGLRenderer): void {
+    this.renderer = renderer;
+    this.initializePerformanceMonitoring();
+  }
+
+  private initializePerformanceMonitoring(): void {
+    if (typeof window !== 'undefined') {
+      let lastTime = performance.now();
+      let frames = 0;
+
+      const checkPerformance = () => {
+        const now = performance.now();
+        frames++;
+
+        if (now - lastTime >= 1000) {
+          const fps = frames;
+          const memory = (performance as any).memory?.usedJSHeapSize || 0;
+          const drawCalls = this.renderer?.info.render.calls || 0;
+
+          // Record FPS
+          monitoringManager.recordMetric({
+            category: MetricCategory.PERFORMANCE,
+            type: MetricType.GAUGE,
+            name: 'globe_fps',
+            value: fps,
+            unit: MetricUnit.COUNT
+          });
+
+          // Record Draw Calls
+          monitoringManager.recordMetric({
+            category: MetricCategory.PERFORMANCE,
+            type: MetricType.GAUGE,
+            name: 'globe_draw_calls',
+            value: drawCalls,
+            unit: MetricUnit.COUNT
+          });
+
+          // Record Memory Usage
+          monitoringManager.recordMetric({
+            category: MetricCategory.RESOURCE,
+            type: MetricType.GAUGE,
+            name: 'globe_memory_usage',
+            value: memory,
+            unit: MetricUnit.BYTES
+          });
+
+          frames = 0;
+          lastTime = now;
+
+          // Adjust optimization based on performance
+          if (fps < 30) {
+            this.adjustOptimizationLevel('down');
+          } else if (fps > 45) {
+            this.adjustOptimizationLevel('up');
+          }
+        }
+
+        requestAnimationFrame(checkPerformance);
+      };
+
+      requestAnimationFrame(checkPerformance);
+    }
+  }
+
+  private adjustOptimizationLevel(direction: 'up' | 'down') {
+    const currentLevel = this.currentOptimizationLevel;
+
+    if (direction === 'down') {
+      this.currentOptimizationLevel = {
+        maxPoints: Math.max(currentLevel.maxPoints * 0.8, 1000),
+        chunkSize: Math.max(currentLevel.chunkSize * 0.8, 50),
+        interval: Math.min(currentLevel.interval * 1.2, 100),
+        quality: currentLevel.quality === 'high' ? 'medium' : 
+                currentLevel.quality === 'medium' ? 'low' : 'low'
+      };
+    } else {
+      this.currentOptimizationLevel = {
+        maxPoints: Math.min(currentLevel.maxPoints * 1.2, 20000),
+        chunkSize: Math.min(currentLevel.chunkSize * 1.2, 200),
+        interval: Math.max(currentLevel.interval * 0.8, 30),
+        quality: currentLevel.quality === 'low' ? 'medium' : 
+                currentLevel.quality === 'medium' ? 'high' : 'high'
+      };
+    }
+
+    this.applyOptimizationLevel();
+  }
+
+  private applyOptimizationLevel() {
+    // Update all active streams with new configuration
+    this.activeStreams.forEach((controller, streamId) => {
+      this.updateStreamConfig(streamId, {
+        batchSize: this.currentOptimizationLevel.chunkSize,
+        interval: this.currentOptimizationLevel.interval,
+        maxRetries: 3
+      });
+    });
+  }
+
+  recordPointUpdateTime(duration: number): void {
+    monitoringManager.recordMetric({
+      category: MetricCategory.PERFORMANCE,
+      type: MetricType.HISTOGRAM,
+      name: 'globe_point_update_time',
+      value: duration,
+      unit: MetricUnit.MILLISECONDS
+    });
+  }
+
+  recordTextureLoadTime(duration: number): void {
+    monitoringManager.recordMetric({
+      category: MetricCategory.PERFORMANCE,
+      type: MetricType.HISTOGRAM,
+      name: 'globe_texture_load_time',
+      value: duration,
+      unit: MetricUnit.MILLISECONDS
+    });
   }
 
   async streamData<T>(
@@ -206,6 +348,10 @@ class OptimizationManager {
 
   setMemoryThreshold(bytes: number) {
     this.memoryThreshold = bytes;
+  }
+
+  private updateStreamConfig(streamId: string, config: DataStreamConfig) {
+    // Update the stream configuration
   }
 }
 

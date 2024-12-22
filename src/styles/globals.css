@@ -406,6 +406,197 @@ a {
   height: 100%;
 }
 
+/* Layout styles */
+.layout-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--background-default);
+  transition: min-height 0.3s ease;
+}
+
+.layout-with-background {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-image: url('/night-sky.png');
+  background-size: cover;
+  background-position: center;
+  transition: min-height 0.3s ease;
+}
+
+.app-bar {
+  backdrop-filter: blur(10px);
+  background-color: rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  transition: all 0.3s ease;
+}
+
+.app-bar.resizing {
+  transition: none;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 1rem;
+}
+
+.app-bar-title {
+  font-weight: 600;
+}
+
+.main-content {
+  flex: 1;
+  padding-top: var(--content-padding-top);
+  transition: padding 0.3s ease;
+}
+
+.main-content.resizing {
+  transition: none;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  gap: 1rem;
+  background-color: var(--background-default);
+}
+
+.offline-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background-color: var(--warning-main);
+  color: var(--warning-contrast);
+  padding: 0.5rem;
+  text-align: center;
+  z-index: var(--z-index-offline-banner);
+}
+
+@media (max-width: 600px) {
+  .toolbar {
+    padding: 0.5rem;
+  }
+  
+  .main-content {
+    padding: 1rem;
+  }
+}
+
+/* Health trend styles */
+.health-trend-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--background-paper);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.health-trend-header {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.health-trend-content {
+  flex: 1;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-height: 400px;
+}
+
+.health-trend-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.health-trend-chart-container {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.health-trend-loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  background-color: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+}
+
+.health-trend-empty {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  height: 100%;
+  text-align: center;
+}
+
+@media (max-width: 600px) {
+  .health-trend-header {
+    padding: 1rem;
+  }
+  
+  .health-trend-content {
+    padding: 1rem;
+    min-height: 300px;
+  }
+  
+  .health-trend-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* Error boundary styles */
+.error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  gap: 1.5rem;
+  text-align: center;
+  padding: 1.5rem;
+}
+
+.error-message {
+  background-color: var(--error-main);
+  color: var(--error-contrast);
+  padding: 1rem;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 600px;
+  overflow-x: auto;
+}
+
+@media (max-width: 600px) {
+  .error-container {
+    padding: 1rem;
+  }
+}
+
 /* Navigation Styles */
 .app-bar {
   background-color: rgba(250, 243, 224, 0);
@@ -465,34 +656,6 @@ a {
   margin: 0;
   padding: 0;
   overflow: hidden;
-}
-
-/* Layout Styles */
-.layout-container {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-}
-
-.layout-with-background {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  position: relative;
-}
-
-.layout-with-background::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-image: url('/night-sky.png');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  z-index: -1;
 }
 
 /* Box Layouts */

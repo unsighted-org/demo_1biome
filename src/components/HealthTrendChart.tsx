@@ -5,7 +5,7 @@ import {
 } from '@mui/material';
 import { format } from 'date-fns';
 import React, { useState, useMemo, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { FaHeart, FaLungs, FaWind, FaRunning, FaCalendarAlt } from 'react-icons/fa';
+import { FaHeart, FaLungs, FaWind, FaRunning, FaCalendarAlt, FaSync } from 'react-icons/fa';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceArea } from 'recharts';
 
 import { getColorForMetric, getMetricColor } from '@/lib/colorUtils';
@@ -39,12 +39,15 @@ const HealthTrendChart = forwardRef<HealthTrendChartRef, HealthTrendChartProps>(
   const [startDateInput, setStartDateInput] = useState('');
   const [endDateInput, setEndDateInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [chartLoading, setChartLoading] = useState(false);
+  const [chartKey, setChartKey] = useState(Date.now());
   
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
 
-  const { data: optimizedData, loading: chartLoading, error: chartError, progress } = useChartOptimization(
+  const { data: optimizedData, loading: chartLoadingState, error: chartError, progress } = useChartOptimization(
     healthData,
     selectedMetrics,
     startDate,
@@ -96,9 +99,12 @@ const HealthTrendChart = forwardRef<HealthTrendChartRef, HealthTrendChartProps>(
   ], []);
 
   useEffect(() => {
-    if (healthData.length > 0 && !startDate && !endDate) {
-      const firstDate = new Date(healthData[0].timestamp);
-      const lastDate = new Date(healthData[healthData.length - 1].timestamp);
+    if (healthData && healthData.length > 0 && !startDate && !endDate) {
+      const sortedData = [...healthData].sort((a, b) => 
+        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      );
+      const firstDate = new Date(sortedData[0].timestamp);
+      const lastDate = new Date(sortedData[sortedData.length - 1].timestamp);
       setStartDate(firstDate);
       setEndDate(lastDate);
       setStartDateInput(format(firstDate, 'yyyy-MM-dd'));
@@ -112,11 +118,9 @@ const HealthTrendChart = forwardRef<HealthTrendChartRef, HealthTrendChartProps>(
     );
   }, []);
 
-  const [chartKey, setChartKey] = useState(0);
-  
   useEffect(() => {
     const handleResize = (): void => {
-      setChartKey(prevKey => prevKey + 1);
+      setChartKey(Date.now());
     };
   
     window.addEventListener('resize', handleResize);
@@ -127,15 +131,18 @@ const HealthTrendChart = forwardRef<HealthTrendChartRef, HealthTrendChartProps>(
     onDataUpdate(optimizedData, selectedMetrics);
   }, [optimizedData, selectedMetrics, onDataUpdate]);
 
-  useImperativeHandle(ref, () => ({
-    refreshData: async () => {
-      if (!loading && !healthLoading) {
-        setLoading(true);
-        await fetchHealthData(1);
-        setLoading(false);
-      }
+  const handleRefresh = useCallback(async () => {
+    if (!loading && !healthLoading) {
+      setLoading(true);
+      await fetchHealthData(1);
+      setCurrentPage(1);
+      setLoading(false);
     }
-  }), [fetchHealthData, loading, healthLoading]);
+  }, [fetchHealthData, loading, healthLoading]);
+
+  useImperativeHandle(ref, () => ({
+    refreshData: handleRefresh
+  }), [handleRefresh]);
 
   const handleDateRangeClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
     setAnchorEl(event.currentTarget);
@@ -181,9 +188,12 @@ const HealthTrendChart = forwardRef<HealthTrendChartRef, HealthTrendChartProps>(
   }, [refAreaLeft, refAreaRight]);
 
   const zoomOut = useCallback(() => {
-    if (healthData.length > 0) {
-      setStartDate(new Date(healthData[0].timestamp));
-      setEndDate(new Date(healthData[healthData.length - 1].timestamp));
+    if (healthData && healthData.length > 0) {  
+      const sortedData = [...healthData].sort((a, b) => 
+        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      );
+      setStartDate(new Date(sortedData[0].timestamp));
+      setEndDate(new Date(sortedData[sortedData.length - 1].timestamp));
     }
     setRefAreaLeft('');
     setRefAreaRight('');
@@ -279,8 +289,18 @@ const HealthTrendChart = forwardRef<HealthTrendChartRef, HealthTrendChartProps>(
     }
   }, [chartType, optimizedData, selectedMetrics, refAreaLeft, refAreaRight, zoom, getLineColor, getResponsiveLabel, CustomYAxisTick]);
 
+  const loadMoreData = useCallback(async () => {
+    if (!loading && !healthLoading) {
+      setLoading(true);
+      const nextPage = currentPage + 1;
+      await fetchHealthData(nextPage);
+      setCurrentPage(nextPage);
+      setLoading(false);
+    }
+  }, [fetchHealthData, loading, healthLoading, currentPage]);
+
   const hasTimedOut = useLoadingTimeout({ 
-    isLoading: loading || healthLoading || chartLoading,
+    isLoading: loading || healthLoading || chartLoadingState,
     timeoutMs: 12000
   });
 
@@ -306,119 +326,238 @@ const HealthTrendChart = forwardRef<HealthTrendChartRef, HealthTrendChartProps>(
     marginBottom: '16px'
   };
 
+  const handleMetricChange = useCallback((event: SelectChangeEvent<HealthMetric[]>) => {
+    const value = event.target.value;
+    setSelectedMetrics(typeof value === 'string' ? value.split(',') as HealthMetric[] : value);
+  }, []);
+
+  const availableMetrics = useMemo(() => [
+    'cardioHealthScore',
+    'respiratoryHealthScore',
+    'physicalActivityScore',
+    'environmentalImpactScore',
+  ], []);
+
+  // Handle empty data state
+  if (!loading && !healthLoading && !chartLoadingState && (!optimizedData || optimizedData.length === 0)) {
+    return (
+      <div className="health-trend-card">
+        <div className="health-trend-header">
+          <Typography variant="h6">Health Trends</Typography>
+        </div>
+        <div className="health-trend-content">
+          <div className="health-trend-empty">
+            <Typography variant="body1" color="textSecondary">
+              No health data available yet.
+            </Typography>
+            <Button
+              variant="contained"
+              onClick={handleRefresh}
+              startIcon={<FaSync />}
+            >
+              Refresh Data
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle error state
+  if (chartError) {
+    return (
+      <div className="health-trend-card">
+        <div className="health-trend-header">
+          <Typography variant="h6">Health Trends</Typography>
+        </div>
+        <div className="health-trend-content">
+          <div className="health-trend-empty">
+            <Typography variant="body1" color="error">
+              {chartError.message || 'Failed to load health data'}
+            </Typography>
+            <Button
+              variant="contained"
+              onClick={handleRefresh}
+              startIcon={<FaSync />}
+            >
+              Try Again
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle data loading optimization
+  useEffect(() => {
+    if (optimizedData && optimizedData.length > 0) {
+      const interval = setInterval(() => {
+        if (!loading && !healthLoading) {
+          handleRefresh();
+        }
+      }, 300000); // Refresh every 5 minutes
+
+      return () => clearInterval(interval);
+    }
+  }, [optimizedData, loading, healthLoading, handleRefresh]);
+
+  // Handle window resize for chart
+  useEffect(() => {
+    let resizeTimeout: NodeJS.Timeout;
+    
+    const handleResize = () => {
+      if (resizeTimeout) {
+        clearTimeout(resizeTimeout);
+      }
+      
+      setChartLoading(true);
+      resizeTimeout = setTimeout(() => {
+        setChartKey(Date.now());
+        setChartLoading(false);
+      }, 150);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (resizeTimeout) {
+        clearTimeout(resizeTimeout);
+      }
+    };
+  }, []);
+
   if (hasTimedOut) {
     return <LoadingTimeoutError onRetry={() => fetchHealthData(1)} />;
   }
 
-  if (chartError) {
-    return (
-      <Typography color="error">
-        Error loading chart data: {chartError.message}
-      </Typography>
-    );
-  }
-
   return (
-    <Card>
-      <CardHeader
-        title={
-          <Typography variant="h6" style={{ fontSize: titleFontSize }}>
-            Health Trends
-          </Typography>
-        }
-        action={
-          <>
+    <div className="health-trend-card">
+      <div className="health-trend-header">
+        <div className="health-trend-controls">
+          <Typography variant="h6">Health Trends</Typography>
+          <div className="health-trend-buttons">
             <Button
+              size="small"
+              variant={chartType === 'line' ? 'contained' : 'outlined'}
+              onClick={() => setChartType('line')}
+              sx={{ minWidth: 100 }}
+            >
+              Line
+            </Button>
+            <Button
+              size="small"
+              variant={chartType === 'area' ? 'contained' : 'outlined'}
+              onClick={() => setChartType('area')}
+              sx={{ minWidth: 100 }}
+            >
+              Area
+            </Button>
+            <Button
+              size="small"
               onClick={handleDateRangeClick}
               startIcon={<FaCalendarAlt />}
-              style={buttonStyle}
+              sx={{ minWidth: 120 }}
             >
               Date Range
             </Button>
-            <Button
-              onClick={zoomOut}
-              disabled={!refAreaLeft && !refAreaRight}
-              style={buttonStyle}
-            >
-              Reset Zoom
-            </Button>
-          </>
-        }
-      />
-      <CardContent>
-        <FormControl fullWidth variant="outlined" sx={{ mb: 2 } as SxProps<Theme>}>
-          <InputLabel>Chart Type</InputLabel>
+          </div>
+        </div>
+      </div>
+      <div className="health-trend-content">
+        <FormControl fullWidth variant="outlined" size="small">
+          <InputLabel>Health Metrics</InputLabel>
           <Select
-            value={chartType}
-            onChange={(e) => setChartType(e.target.value as typeof chartType)}
-            label="Chart Type"
+            multiple
+            value={selectedMetrics}
+            onChange={handleMetricChange}
+            label="Health Metrics"
+            renderValue={(selected) => (
+              <div className="health-trend-metrics">
+                {(selected as string[]).map((value) => (
+                  <div key={value} className="health-trend-metric">
+                    {value.replace(/([A-Z])/g, ' $1').trim()}
+                  </div>
+                ))}
+              </div>
+            )}
           >
-            <MenuItem value="line">Line Chart</MenuItem>
-            <MenuItem value="area">Area Chart</MenuItem>
+            {availableMetrics.map((metric) => (
+              <MenuItem key={metric} value={metric}>
+                {metric.replace(/([A-Z])/g, ' $1').trim()}
+              </MenuItem>
+            ))}
           </Select>
         </FormControl>
-        <div style={buttonContainerStyle}>
-          {metricOptions.map(({ value, label, icon }) => (
-            <Button
-              key={value}
-              variant={selectedMetrics.includes(value) ? 'contained' : 'outlined'}
-              onClick={() => toggleMetric(value)}
-              startIcon={icon}
-              style={buttonStyle}
-            >
-              {isMobile ? '' : label}
-            </Button>
-          ))}
-        </div>
-        <div style={chartContainerStyle}>
-          {(loading || healthLoading || chartLoading) ? (
-            <div style={loadingContainerStyle}>
-              <CircularProgress />
-              {progress > 0 && (
-                <Typography variant="caption" sx={{ ml: 1 } as SxProps<Theme>}>
-                  {Math.round(progress * 100)}%
-                </Typography>
-              )}
+
+        <div className="health-trend-chart-container">
+          {(loading || healthLoading || chartLoadingState) ? (
+            <div className="health-trend-loading">
+              <CircularProgress size={40} />
+              <Typography variant="body2" color="textSecondary">
+                Loading health data...
+              </Typography>
             </div>
           ) : (
-            <ResponsiveContainer key={chartKey}>
+            <ResponsiveContainer width="100%" height="100%">
               {renderChart}
             </ResponsiveContainer>
           )}
         </div>
-      </CardContent>
+
+        {!loading && !healthLoading && !chartLoadingState && optimizedData.length > 0 && (
+          <div className="health-trend-footer">
+            <Button
+              variant="outlined"
+              onClick={loadMoreData}
+              disabled={loading || healthLoading}
+              sx={{ minWidth: 200 }}
+            >
+              Load More Data
+            </Button>
+          </div>
+        )}
+      </div>
+
       <Popover
         open={Boolean(anchorEl)}
         anchorEl={anchorEl}
         onClose={handleDateRangeClose}
         anchorOrigin={{
           vertical: 'bottom',
-          horizontal: 'left',
+          horizontal: 'right',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
         }}
       >
-        <Box component="div" sx={{ p: 2 } as SxProps<Theme>}>
+        <div className="health-trend-date-picker">
           <TextField
             label="Start Date"
             type="date"
             value={startDateInput}
             onChange={(e) => setStartDateInput(e.target.value)}
-            sx={{ mb: 2 } as SxProps<Theme>}
             fullWidth
+            InputLabelProps={{ shrink: true }}
           />
           <TextField
             label="End Date"
             type="date"
             value={endDateInput}
             onChange={(e) => setEndDateInput(e.target.value)}
-            sx={{ mb: 2 } as SxProps<Theme>}
             fullWidth
+            InputLabelProps={{ shrink: true }}
           />
-          <Button onClick={handleDateRangeSubmit} variant="contained" fullWidth>
-            Apply
+          <Button
+            variant="contained"
+            onClick={handleDateRangeSubmit}
+            disabled={!startDateInput || !endDateInput}
+          >
+            Apply Range
           </Button>
-        </Box>
+        </div>
       </Popover>
-    </Card>
+    </div>
   );
 });
 

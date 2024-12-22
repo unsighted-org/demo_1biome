@@ -17,7 +17,7 @@ import {
 } from '@mui/material';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import styled from '@emotion/styled';
 import type { Theme } from '@mui/material/styles';
 import type { SystemStyleObject } from '@mui/system';
@@ -78,12 +78,20 @@ const LoadingContainer = styled(Box)({
   backgroundColor: 'black'
 });
 
+interface LocationInfo {
+  name: string;
+  country: string;
+  state: string;
+  continent: string;
+}
+
 const GlobePage: NextPage = () => {
   const { 
     healthData, 
+    error,
     loading: healthLoading, 
-    error, 
-    fetchHealthData 
+    displayMetric,
+    fetchHealthData
   }: HealthContextType = useHealth();
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -99,7 +107,7 @@ const GlobePage: NextPage = () => {
     if (!authLoading && !user) {
       router.push('/login');
     } else if (user) {
-      fetchHealthData(1).catch(console.error);
+      fetchHealthData().catch(console.error);
       notificationService.initializeNotifications(user, user.token).catch(console.error);
     }
   }, [authLoading, user, router, fetchHealthData]);
@@ -114,7 +122,7 @@ const GlobePage: NextPage = () => {
       <LoadingContainer>
         <LoadingTimeoutError 
           message="Loading the health globe is taking longer than expected." 
-          onRetry={() => fetchHealthData(1)}
+          onRetry={() => fetchHealthData()}
         />
       </LoadingContainer>
     );
@@ -136,13 +144,13 @@ const GlobePage: NextPage = () => {
       <LoadingContainer>
         <Error color="error" sx={{ fontSize: 60, marginBottom: '20px' }} />
         <Typography variant="h6" color="error" gutterBottom>
-          {error}
+          {error.toString()}
         </Typography>
         <Button
           variant="contained"
           color="primary"
           startIcon={<Refresh />}
-          onClick={() => fetchHealthData(1)}
+          onClick={() => fetchHealthData()}
           sx={{ marginTop: '20px' }}
         >
           Retry
@@ -150,6 +158,10 @@ const GlobePage: NextPage = () => {
       </LoadingContainer>
     );
   }
+
+  const handleLocationHover = useCallback((location: LocationInfo | null) => {
+    console.log('Location hover:', location);
+  }, []);
 
   return (
     <Box component="main" sx={mainBoxStyles}>
@@ -161,38 +173,38 @@ const GlobePage: NextPage = () => {
         color: 'white'
       }}>
         <Typography variant="h4">Your Health Globe</Typography>
-        <Button variant="contained" onClick={() => fetchHealthData(1)} startIcon={<Refresh />}>Refresh Data</Button>
+        <Button variant="contained" onClick={() => fetchHealthData()} startIcon={<Refresh />}>Refresh Data</Button>
       </div>
 
       <Grid container spacing={3}>
         <Grid item xs={12} md={8}>
-          {healthData.length > 0 ? (
-            <div style={{ 
-              height: '60vh',
-              minHeight: '400px'
-            }}>
-              <AnimatedGlobe 
-                onLocationHover={(location: { name: string; country: string; state: string; continent: string; } | null) => {
-                  // Handle location hover if needed
-                  console.log('Location hover:', location);
-                }} 
-                onPointSelect={(point) => {
-                  // Handle point selection if needed
-                  console.log('Point selected:', point);
-                }}
-              />
-            </div>
-          ) : (
-            <div style={{ 
-              height: '60vh',
-              minHeight: '400px',
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center'
-            }}>
-              <Typography variant="h6" color="white">No health data available. Start tracking to see your globe!</Typography>
-            </div>
-          )}
+          <div style={{ 
+            height: '60vh',
+            minHeight: '400px',
+            position: 'relative'
+          }}>
+            <AnimatedGlobe 
+              onLocationHover={handleLocationHover}
+              displayMetric={displayMetric}
+            />
+            {healthData.length === 0 && (
+              <div style={{ 
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                textAlign: 'center',
+                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                padding: '20px',
+                borderRadius: '8px',
+                zIndex: 10
+              }}>
+                <Typography variant="h6" color="white">
+                  No health data available. Start tracking to see your data on the globe!
+                </Typography>
+              </div>
+            )}
+          </div>
         </Grid>
         <Grid item xs={12} md={4}>
           <Paper sx={paperStyles}>

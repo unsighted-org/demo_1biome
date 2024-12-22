@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 
 import GeospatialChart from "./GeospatialChart";
@@ -11,6 +11,7 @@ type DynamicEarthTextureProps = {
     center: { latitude: number; longitude: number };
     zoom: number;
     onTextureReady: (texture: THREE.CanvasTexture) => void;
+    onLoadTime?: (duration: number) => void;
 };
 
 const DynamicEarthTexture: React.FC<DynamicEarthTextureProps> = ({
@@ -19,8 +20,10 @@ const DynamicEarthTexture: React.FC<DynamicEarthTextureProps> = ({
     center,
     zoom,
     onTextureReady,
+    onLoadTime,
 }) => {
     const containerRef = useRef<HTMLDivElement>(null);
+    const [startTime, setStartTime] = useState(performance.now());
 
     useEffect(() => {
         if (containerRef.current && onTextureReady) {
@@ -32,8 +35,13 @@ const DynamicEarthTexture: React.FC<DynamicEarthTextureProps> = ({
                 requestAnimationFrame(updateTexture);
             };
             updateTexture();
+
+            if (onLoadTime) {
+                const loadTime = performance.now() - startTime;
+                onLoadTime(loadTime);
+            }
         }
-    }, [containerRef, onTextureReady]);
+    }, [containerRef, onTextureReady, onLoadTime, startTime]);
 
     return (
         <div ref={containerRef} style={{ width: "1024px", height: "512px" }}>

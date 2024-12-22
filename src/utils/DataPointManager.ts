@@ -48,16 +48,22 @@ export class DataPointManager {
   }
 
   async updatePoints(
-    healthData: HealthEnvironmentData[],
+    healthData: HealthEnvironmentData[] | undefined,
     displayMetric: HealthMetric,
     visibleArea: THREE.Box2
   ): Promise<void> {
-    if (!this.instancedMesh || this.updateQueued) return;
-
+    if (this.updateQueued) return;
     this.updateQueued = true;
-    const streamId = `points_update_${Date.now()}`;
 
     try {
+      // Clear existing points if no health data
+      if (!healthData || healthData.length === 0) {
+        this.clear();
+        return;
+      }
+
+      const streamId = Math.random().toString(36).substring(7);
+
       const boundUpdatePoints = async function*(this: DataPointManager) {
         const chunks: HealthEnvironmentData[][] = [];
         for (let i = 0; i < healthData.length; i += this.options.chunkSize) {
@@ -165,5 +171,13 @@ export class DataPointManager {
 
   getVisiblePointCount(): number {
     return this.visiblePoints.size;
+  }
+
+  updateConfig(newOptions: Partial<DataPointOptions>): void {
+    this.options = { ...this.options, ...newOptions };
+    // Trigger a re-render if needed
+    if (this.instancedMesh) {
+      this.updateQueued = true;
+    }
   }
 }

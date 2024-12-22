@@ -1,8 +1,11 @@
 import React from 'react';
 import { useRouter } from 'next/router';
-import { AppBar, Box, Button, Container, IconButton, Toolbar, Typography } from '@mui/material';
+import { AppBar, Box, Button, Container, IconButton, Toolbar, Typography, List, ListItem, ListItemIcon, ListItemText, Link } from '@mui/material';
 import { Menu as MenuIcon } from '@mui/icons-material';
 import { signOut, useSession } from 'next-auth/react';
+import Dashboard from '@mui/icons-material/Dashboard';
+import Public from '@mui/icons-material/Public';
+import HealthAndSafety from '@mui/icons-material/HealthAndSafety';
 
 type NavItem = {
   label: string;
@@ -15,6 +18,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', path: '/dashboard', requiresAuth: true },
   { label: 'Profile', path: '/profile', requiresAuth: true },
   { label: 'Settings', path: '/settings', requiresAuth: true },
+  { label: 'Health Integrations', path: '/settings/health-integrations', requiresAuth: true },
 ];
 
 const NavButton: React.FC<{

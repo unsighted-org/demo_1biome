@@ -28,23 +28,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = useCallback(async (email: string, password: string) => {
     try {
+      setLoading(true);
       const response = await api.login(email, password);
-      setUser(response);
-      router.push('/globescreen');
+      if (response) {
+        setUser(response);
+        // Wait for state to update
+        await new Promise(resolve => setTimeout(resolve, 100));
+        // Use replace instead of push to prevent back button issues
+        await router.replace('/globescreen');
+      }
     } catch (error) {
       console.error('Sign in error:', error);
       throw error;
+    } finally {
+      setLoading(false);
     }
   }, [api, router]);
 
   const signup = useCallback(async (signupData: UserSignupData) => {
     try {
+      setLoading(true);
       const response = await api.signUp(signupData);
       setUser(response);
+      // Wait for state to update before redirecting
+      await new Promise(resolve => setTimeout(resolve, 0));
       router.push('/globescreen');
     } catch (error) {
       console.error('Sign up error:', error);
       throw error;
+    } finally {
+      setLoading(false);
     }
   }, [api, router]);
 
@@ -97,38 +110,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user, api.token]);
 
-  // Handle token persistence and validation
-  useEffect(() => {
-    const initializeAuth = async () => {
-      const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          const userData = await api.getSession();
-          if (userData) {
-            setUser(userData);
-          }
-        } catch (error) {
-          console.error('Failed to initialize auth:', error);
-          localStorage.removeItem('token');
-        }
-      }
-    };
-
-    initializeAuth();
-  }, [api]);
-
+  // Auth initialization
   useEffect(() => {
     let mounted = true;
 
     const initializeAuth = async () => {
       try {
-        const isValid = await api.validateToken();
-        if (isValid && mounted) {
+        const token = localStorage.getItem('token');
+        if (token && mounted) {
           const userProfile = await api.getUserProfile();
-          setUser(userProfile);
+          if (userProfile && mounted) {
+            setUser(userProfile);
+            // Redirect if on a public route
+            const isPublicRoute = PUBLIC_ROUTES.includes(router.pathname);
+            if (isPublicRoute) {
+              await router.replace('/globescreen');
+            }
+          }
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
+        localStorage.removeItem('token');
       } finally {
         if (mounted) {
           setLoading(false);
@@ -141,19 +143,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       mounted = false;
     };
-  }, [api]);
+  }, [api, router]);
 
   // Protected route handling
   useEffect(() => {
-    if (!loading) {
-      const isPublicRoute = PUBLIC_ROUTES.includes(router.pathname);
-      if (!user && !isPublicRoute && router.pathname !== '/') {
-        router.push('/login');
-      } else if (user && isPublicRoute) {
-        router.push('/globescreen');
+    const handleRouting = async () => {
+      if (!loading) {
+        const isPublicRoute = PUBLIC_ROUTES.includes(router.pathname);
+        const token = localStorage.getItem('token');
+        
+        if (!user && !isPublicRoute && router.pathname !== '/') {
+          // Redirect to login if not authenticated and not on a public route
+          await router.replace('/login');
+        } else if (user && isPublicRoute) {
+          // Redirect to globescreen if authenticated and on a public route
+          await router.replace('/globescreen');
+        } else if (token && !user) {
+          // Try to restore session if token exists but no user
+          try {
+            const userData = await api.getSession();
+            if (userData) {
+              setUser(userData);
+              if (isPublicRoute) {
+                await router.replace('/globescreen');
+              }
+            } else {
+              // Invalid token, clean up and redirect
+              localStorage.removeItem('token');
+              if (!isPublicRoute) {
+                await router.replace('/login');
+              }
+            }
+          } catch (error) {
+            console.error('Session restoration failed:', error);
+            localStorage.removeItem('token');
+            if (!isPublicRoute) {
+              await router.replace('/login');
+            }
+          }
+        }
       }
-    }
-  }, [user, loading, router]);
+    };
+
+    handleRouting();
+  }, [user, loading, router, api]);
 
   const contextValue = {
     user,

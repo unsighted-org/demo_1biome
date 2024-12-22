@@ -50,7 +50,7 @@ const StatsPage: React.FC = () => {
     if (error) {
       return (
         <div className="error-container">
-          <Typography color="error">{error}</Typography>
+          <Typography color="error">{error.message}</Typography>
         </div>
       );
     }

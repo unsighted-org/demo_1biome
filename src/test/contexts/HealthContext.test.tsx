@@ -38,7 +38,7 @@ const TestComponent = () => {
   return (
     <div>
       {loading && <div>Loading...</div>}
-      {error && <div data-testid="error">{error}</div>}
+      {error && <div data-testid="error">{error instanceof Error ? error.message : error}</div>}
       {healthData.map((data, index) => (
         <div key={index} data-testid="health-data">
           {data.environmentalImpactScore}
