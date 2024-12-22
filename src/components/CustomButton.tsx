@@ -7,6 +7,7 @@ import type { ButtonProps } from '@mui/material/Button';
 
 interface CustomButtonProps extends Omit<ButtonProps, 'title'> {
   title?: string;
+  icon?: React.ReactNode;
 }
 
 const StyledButton = styled(Button)(({ theme }) => ({
@@ -20,9 +21,9 @@ const StyledButton = styled(Button)(({ theme }) => ({
   },
 }));
 
-const CustomButton: React.FC<CustomButtonProps> = ({ title, children, ...props }) => {
+const CustomButton: React.FC<CustomButtonProps> = ({ title, icon, children, ...props }) => {
   return (
-    <StyledButton variant="contained" {...props}>
+    <StyledButton variant="contained" startIcon={icon} {...props}>
       {title || children}
     </StyledButton>
   );

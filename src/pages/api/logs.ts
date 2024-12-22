@@ -2,6 +2,7 @@
 
 import { NextApiRequest, NextApiResponse } from 'next';
 import { monitoringManager } from '@/MonitoringSystem/managers/MonitoringManager';
+import { LogLevel } from '@/MonitoringSystem/managers/MonitoringManager'; // Added import for LogLevel
 
 interface TimeWindow {
   start: Date;
@@ -58,12 +59,28 @@ async function validateLogsBatch(body: any): Promise<any[]> {
 
 async function processLogsBatch(logs: any[]): Promise<void> {
   try {
-    for (const log of logs) {
-      // Simulate log processing
-      console.log('Processing log:', log);
-    }
+    await Promise.all(logs.map(async (log) => {
+      try {
+        await monitoringManager.logger.log(
+          log.level || LogLevel.INFO,
+          log.message || 'No message provided',
+          {
+            ...log,
+            category: log.category,
+            component: log.component,
+            userId: log.userId || 'system'
+          }
+        );
+      } catch (error) {
+        console.error('Error recording log:', error);
+        throw error;
+      }
+    }));
+    
+    await monitoringManager.logger.flush();
   } catch (error) {
-    throw new Error('Failed to process logs batch');
+    console.error('Failed to process logs batch:', error);
+    throw error;
   }
 }
 
@@ -71,6 +88,20 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  // Enable CORS
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+  );
+
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
   try {
     if (req.method === 'POST') {
       const validatedLogs = await validateLogsBatch(req.body);
@@ -84,8 +115,10 @@ export default async function handler(
           count: validatedLogs.length
         });
       } catch (error) {
+        console.error('Error processing logs:', error);
         return res.status(500).json({
-          error: 'Failed to process logs batch'
+          error: 'Failed to process logs batch',
+          details: error instanceof Error ? error.message : 'Unknown error'
         });
       }
     }
@@ -101,14 +134,16 @@ export default async function handler(
       });
     }
 
-    res.setHeader('Allow', ['GET', 'POST']);
+    res.setHeader('Allow', ['GET', 'POST', 'OPTIONS']);
     return res.status(405).json({
       error: 'Method not allowed'
     });
 
   } catch (error) {
+    console.error('Error in logs handler:', error);
     return res.status(500).json({
-      error: 'Error processing logs request'
+      error: 'Error processing logs request',
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 }

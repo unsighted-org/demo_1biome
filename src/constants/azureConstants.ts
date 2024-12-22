@@ -4,19 +4,19 @@ import { Delete } from "@mui/icons-material";
 
 // Azure configs
 export const AZURE_COSMOSDB_CONFIG = {
-  USERNAME: process.env.NEXT_PUBLIC_AZURE_COSMOSDB_USERNAME || '',
-  PASSWORD: process.env.NEXT_PUBLIC_AZURE_COSMOSDB_PASSWORD || '',
-  HOST: process.env.NEXT_PUBLIC_AZURE_COSMOSDB_HOST || '',
-  DEFAULT_DB_NAME: process.env.NEXT_PUBLIC_COSMOS_DATABASE_NAME || '',
+  USERNAME: process.env.AZURE_COSMOSDB_USERNAME || '',
+  PASSWORD: process.env.AZURE_COSMOSDB_PASSWORD || '',
+  HOST: process.env.AZURE_COSMOSDB_HOST || '',
+  DEFAULT_DB_NAME: process.env.COSMOS_DATABASE_NAME || '',
 };
 
-export const AZURE_SUBSCRIPTION_ID = process.env.NEXT_PUBLIC_AZURE_SUBSCRIPTION_ID || '';
-export const AZURE_RESOURCE_GROUP = process.env.NEXT_PUBLIC_AZURE_RESOURCE_GROUP_NAME || '';
+export const AZURE_SUBSCRIPTION_ID = process.env.AZURE_SUBSCRIPTION_ID || '';
+export const AZURE_RESOURCE_GROUP = process.env.AZURE_RESOURCE_GROUP_NAME || '';
 
 export const AZURE_BLOB_STORAGE_CONFIG = {
   ACCOUNT_NAME: process.env.AZURE_STORAGE_ACCOUNT_NAME || '',
   ACCOUNT_KEY: process.env.AZURE_STORAGE_ACCOUNT_KEY || '',
-  CONTAINER_NAME: process.env.AZURE_STORAGE_CONTAINER_NAME || 'uploads', // Provide a default
+  CONTAINER_NAME: process.env.AZURE_STORAGE_CONTAINER_NAME || 'uploads', 
   FRONT_DOOR_ENDPOINT: process.env.AZURE_FRONT_DOOR_ENDPOINT || ''
 } as const;
 
@@ -32,12 +32,12 @@ export const AZURE_BLOB_SAS_CONFIG = {
 };
 
 export const AZURE_RESOURCE_CONFIG = {
-  SUBSCRIPTION_ID: process.env.NEXT_PUBLIC_AZURE_SUBSCRIPTION_ID || '',
-  RESOURCE_GROUP_NAME: process.env.NEXT_PUBLIC_AZURE_RESOURCE_GROUP_NAME || '',
-  TENANT_ID: process.env.NEXT_PUBLIC_AZURE_TENANT_ID || '',
-  CLIENT_ID: process.env.NEXT_PUBLIC_AZURE_CLIENT_ID || '',
-  STORAGE_ACCOUNT_NAME: process.env.NEXT_PUBLIC_STORAGE_ACCOUNT_NAME || '',
-  COSMOS_ACCOUNT_NAME: process.env.NEXT_PUBLIC_COSMOS_ACCOUNT_NAME || '',
+  SUBSCRIPTION_ID: process.env.AZURE_SUBSCRIPTION_ID || '',
+  RESOURCE_GROUP_NAME: process.env.AZURE_RESOURCE_GROUP_NAME || '',
+  TENANT_ID: process.env.AZURE_TENANT_ID || '',
+  CLIENT_ID: process.env.AZURE_CLIENT_ID || '',
+  STORAGE_ACCOUNT_NAME: process.env.STORAGE_ACCOUNT_NAME || '',
+  COSMOS_ACCOUNT_NAME: process.env.COSMOS_ACCOUNT_NAME || '',
 };
 
 export const validateConfig = () => {
@@ -51,7 +51,7 @@ export const validateConfig = () => {
    // Validate required values
   Object.entries(requiredVars).forEach(([key, value]) => {
     if (!value) {
-      throw new Error(`Missing required Azure configuration: ${key}`);
+      throw new Error(`Missing required configuration: ${key}`);
     }
   });
 
@@ -65,27 +65,27 @@ export const validateConfig = () => {
 
 
 export const AZURE_API_VERSIONS = {
-  STORAGE: process.env.NEXT_PUBLIC_AZURE_API_VERSION_STORAGE || '2021-04-01',
-  COSMOS_DB: process.env.NEXT_PUBLIC_AZURE_API_VERSION_COSMOS_DB || '2021-10-15',
+  STORAGE: process.env.AZURE_API_VERSION_STORAGE || '2021-04-01',
+  COSMOS_DB: process.env.AZURE_API_VERSION_COSMOS_DB || '2021-10-15',
 };
 
 export const AZURE_RESOURCE_PROVIDERS = {
-  STORAGE: process.env.NEXT_PUBLIC_AZURE_RESOURCE_PROVIDER_STORAGE || 'Microsoft.Storage',
-  COSMOS_DB: process.env.NEXT_PUBLIC_AZURE_RESOURCE_PROVIDER_COSMOS_DB || 'Microsoft.DocumentDB',
+  STORAGE: process.env.AZURE_RESOURCE_PROVIDER_STORAGE || 'Microsoft.Storage',
+  COSMOS_DB: process.env.AZURE_RESOURCE_PROVIDER_COSMOS_DB || 'Microsoft.DocumentDB',
 };
 
 export const AZURE_SERVICE_BUS_CONFIG = {
-  CONNECTION_STRING: process.env.NEXT_PUBLIC_AZURE_SERVICE_BUS_CONNECTION_STRING || '',
-  QUEUE_NAME: process.env.NEXT_PUBLIC_AZURE_SERVICE_BUS_QUEUE_NAME || '',
+  CONNECTION_STRING: process.env.AZURE_SERVICE_BUS_CONNECTION_STRING || '',
+  QUEUE_NAME: process.env.AZURE_SERVICE_BUS_QUEUE_NAME || '',
 };
 
 export const AZURE_FUNCTION_APP_CONFIG = {
-  NAME: process.env.NEXT_PUBLIC_AZURE_FUNCTION_APP_NAME || '',
-  RESOURCE_GROUP: process.env.NEXT_PUBLIC_AZURE_RESOURCE_GROUP_NAME || '',
+  NAME: process.env.AZURE_FUNCTION_APP_NAME || '',
+  RESOURCE_GROUP: process.env.AZURE_RESOURCE_GROUP_NAME || '',
 };
 
 export const AZURE_INSIGHTS_CONFIG = {
-  APP_INSIGHTS_KEY: process.env.NEXT_PUBLIC_AZURE_APP_INSIGHTS_KEY || '',
+  APP_INSIGHTS_KEY: process.env.AZURE_APP_INSIGHTS_KEY || '',
 };
 
 export const COLLECTIONS = {
@@ -101,7 +101,7 @@ export const API_ENDPOINTS = {
     UPLOAD_BLOB: '/api/azure/blob/uploadBlob',
     LIST_BLOBS: '/api/azure/blob/listBlobs',
     DELETE_BLOB: '/api/azure/blob/deleteBlob',
-    DELETE_CONTAINER: '/api/azure/blob/deleteContainer', // Add this
+    DELETE_CONTAINER: '/api/azure/blob/deleteContainer', 
   },
   COSMOS: {
     CREATE_DATABASE: '/api/azure/cosmos/createDatabase',
@@ -121,12 +121,12 @@ export const API_ENDPOINTS = {
     LIST_STORAGE_ACCOUNTS: '/api/azure/storage/listStorageAccounts',
   },
   RESOURCES: {
-    GET_DETAILS: '/api/azure/resources/getResourceDetails', // Update this
+    GET_DETAILS: '/api/azure/resources/getResourceDetails', 
   },
 };
 
 export const AZURE_RESOURCE_TYPES = {
-  STORAGE_ACCOUNT: process.env.NEXT_PUBLIC_AZURE_RESOURCE_TYPE_STORAGE_ACCOUNT || 'Microsoft.Storage/storageAccounts',
-  COSMOS_DB_ACCOUNT: process.env.NEXT_PUBLIC_AZURE_RESOURCE_TYPE_COSMOS_DB_ACCOUNT || 'Microsoft.DocumentDB/databaseAccounts',
-  FUNCTION_APP: process.env.NEXT_PUBLIC_AZURE_RESOURCE_TYPE_FUNCTION_APP || 'Microsoft.Web/sites',
+  STORAGE_ACCOUNT: process.env.AZURE_RESOURCE_TYPE_STORAGE_ACCOUNT || 'Microsoft.Storage/storageAccounts',
+  COSMOS_DB_ACCOUNT: process.env.AZURE_RESOURCE_TYPE_COSMOS_DB_ACCOUNT || 'Microsoft.DocumentDB/databaseAccounts',
+  FUNCTION_APP: process.env.AZURE_RESOURCE_TYPE_FUNCTION_APP || 'Microsoft.Web/sites',
 };

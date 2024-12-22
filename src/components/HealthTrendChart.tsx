@@ -9,7 +9,7 @@ import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
 
 import { getColorForMetric, getMetricColor } from '@/lib/colorUtils';
 import { formatDate, getHealthScoreDescription } from '@/lib/helpers';
-import { useHealth } from '@/services/HealthContext';
+import { useHealth } from '@/contexts/HealthContext';
 
 import type { HealthEnvironmentData, HealthMetric } from '@/types';
 import type { SelectChangeEvent } from '@mui/material';

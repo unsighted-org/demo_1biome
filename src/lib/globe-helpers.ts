@@ -324,23 +324,36 @@ export const createAtmosphereMaterial = (earthTexture: THREE.Texture): THREE.Sha
 
 
 export function createGeospatialMaterial(healthData: HealthEnvironmentData[], displayMetric: HealthMetric): THREE.ShaderMaterial {
-  // Create a data texture from the health data
   const width = 360;
   const height = 180;
   const size = width * height;
   const data = new Float32Array(4 * size);
 
-  for (let i = 0; i < healthData.length; i++) {
-    const datum = healthData[i];
+  // Initialize all data to 0
+  data.fill(0);
+
+  // Use more efficient data mapping
+  const dataMap = new Map<string, number>();
+  healthData.forEach(datum => {
     const x = Math.floor((datum.longitude + 180) * (width / 360));
     const y = Math.floor((90 - datum.latitude) * (height / 180));
-    const index = (y * width + x) * 4;
+    const key = `${x},${y}`;
     
-    data[index] = datum[displayMetric] / 100; // Assuming metric is normalized to 0-100
-    data[index + 1] = 0;
-    data[index + 2] = 0;
+    // Keep the highest value for each location
+    const currentValue = dataMap.get(key) || 0;
+    const newValue = datum[displayMetric] / 100;
+    if (newValue > currentValue) {
+      dataMap.set(key, newValue);
+    }
+  });
+
+  // Apply the mapped data to the texture
+  dataMap.forEach((value, key) => {
+    const [x, y] = key.split(',').map(Number);
+    const index = (y * width + x) * 4;
+    data[index] = value;
     data[index + 3] = 1;
-  }
+  });
 
   const dataTexture = new THREE.DataTexture(data, width, height, THREE.RGBAFormat, THREE.FloatType);
   dataTexture.needsUpdate = true;

@@ -303,3 +303,5 @@ export const monitoringManager = MonitoringManager.getInstance();
 export const errorManager = monitoringManager.error;
 export const loggerManager = monitoringManager.logger;
 export const metricsManager = monitoringManager.metrics;
+
+export { LogLevel };

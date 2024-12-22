@@ -5,8 +5,9 @@ import { Provider as ReduxProvider } from 'react-redux';
 
 import ErrorBoundary from '../components/ErrorBoundary';
 import Layout from '../components/Layout';
-import { AuthProvider } from '../context/AuthContext';
-import { NotificationProvider } from '../context/NotificationContext';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { NotificationProvider } from '@/contexts/NotificationContext';
+import { HealthProvider } from '../contexts/HealthContext';
 import { store } from '../store';
 import theme from '../styles/theme';
 
@@ -24,7 +25,9 @@ function MyApp({ Component, pageProps: { session, ...pageProps } }: AppProps): J
             <Layout>
               <ErrorBoundary>
                 <NotificationProvider>
-                  <Component {...pageProps} />
+                  <HealthProvider>
+                    <Component {...pageProps} />
+                  </HealthProvider>
                 </NotificationProvider>
               </ErrorBoundary>
             </Layout>

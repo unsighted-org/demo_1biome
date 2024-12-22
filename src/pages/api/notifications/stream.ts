@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { redisService } from '@/services/cache/redisService';
 import { verify } from 'jsonwebtoken';
-import { setSecurityHeaders } from '@/lib/security';
+import { setSecurityHeaders } from '@/utils/api';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Set security headers

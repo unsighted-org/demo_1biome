@@ -2,15 +2,16 @@ import React, { useEffect, useMemo } from 'react';
 import { Box, Typography, CircularProgress, Alert } from '@mui/material';
 import { useRouter } from 'next/router';
 import HealthTrendChart from '@/components/HealthTrendChart';
-import { useAuth } from '@/context/AuthContext';
-import { useHealthData } from '@/hooks/useHealthData';
+import { useAuth } from '@/contexts/AuthContext';
 import { useAppSelector } from '@/store';
+import { useHealth } from '@/contexts/HealthContext';
+import type { HealthEnvironmentData, HealthMetric } from '@/types';
 
 const StatsPage: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const { loading, error, fetchHealthData } = useHealthData(user);
   const healthData = useAppSelector((state) => state.health.data);
+  const { fetchHealthData, loading, error } = useHealth();
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -36,7 +37,7 @@ const StatsPage: React.FC = () => {
     }
     return (
       <Box sx={{ height: 'calc(100vh - 200px)', mb: 4 }}>
-        <HealthTrendChart healthData={healthData} />
+        <HealthTrendChart onDataUpdate={(data: HealthEnvironmentData[], metrics: HealthMetric[]) => {}} />
       </Box>
     );
   }, [loading, error, healthData]);

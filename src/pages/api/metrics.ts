@@ -51,14 +51,22 @@ async function validateMetricsBatch(body: any): Promise<MetricEntry[]> {
   }
 
   return body.metrics.map((metric: any) => {
-    if (!Object.values(MetricCategory).includes(metric.category)) {
-      throw new Error(`Invalid metric category: ${metric.category}`);
+    // Handle nested category structure
+    const category = typeof metric.category === 'object' ? metric.category.category : metric.category;
+    
+    if (!Object.values(MetricCategory).includes(category)) {
+      throw new Error(`Invalid metric category: ${category}`);
     }
     if (!Object.values(MetricType).includes(metric.type)) {
       throw new Error(`Invalid metric type: ${metric.type}`);
     }
     if (!Object.values(MetricUnit).includes(metric.unit)) {
       throw new Error(`Invalid metric unit: ${metric.unit}`);
+    }
+    
+    // Ensure value is not null
+    if (metric.value === null) {
+      metric.value = 0; // or another appropriate default value
     }
 
     return {
@@ -71,15 +79,27 @@ async function validateMetricsBatch(body: any): Promise<MetricEntry[]> {
 
 async function processMetricsBatch(metrics: MetricEntry[]): Promise<void> {
   try {
-    for (const metric of metrics) {
-      // Simulate recording metric
-      console.log('Recording metric:', metric);
-    }
+    await Promise.all(metrics.map(async (metric) => {
+      try {
+        monitoringManager.metrics.recordMetric(
+          metric.category,
+          metric.component,
+          metric.action,
+          metric.value,
+          metric.type || MetricType.COUNTER,
+          metric.unit || MetricUnit.COUNT,
+          metric.metadata
+        );
+      } catch (error) {
+        console.error('Error recording metric:', error);
+        throw error;
+      }
+    }));
     
-    // Simulate flushing metrics
-    console.log('Flushing metrics');
+    await monitoringManager.metrics.flush();
   } catch (error) {
-    throw new Error('Failed to process metrics batch');
+    console.error('Failed to process metrics batch:', error);
+    throw error;
   }
 }
 
@@ -87,6 +107,20 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  // Enable CORS
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+  );
+
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
   try {
     if (req.method === 'POST') {
       const validatedMetrics = await validateMetricsBatch(req.body);
@@ -100,15 +134,17 @@ export default async function handler(
           count: validatedMetrics.length
         });
       } catch (error) {
+        console.error('Error processing metrics:', error);
         return res.status(500).json({
-          error: 'Failed to process metrics batch'
+          error: 'Failed to process metrics batch',
+          details: error instanceof Error ? error.message : 'Unknown error'
         });
       }
     }
 
     if (req.method === 'GET') {
       const timeWindow = validateTimeWindow(req.query.timeWindow as string);
-      const metrics = monitoringManager.metrics.getAllMetrics();
+      const metrics = await monitoringManager.metrics.getAllMetrics();
 
       return res.status(200).json({
         success: true,
@@ -117,14 +153,16 @@ export default async function handler(
       });
     }
 
-    res.setHeader('Allow', ['GET', 'POST']);
+    res.setHeader('Allow', ['GET', 'POST', 'OPTIONS']);
     return res.status(405).json({
       error: 'Method not allowed'
     });
 
   } catch (error) {
+    console.error('Error in metrics handler:', error);
     return res.status(500).json({
-      error: 'Error processing metrics request'
+      error: 'Error processing metrics request',
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 }

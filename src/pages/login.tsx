@@ -8,16 +8,21 @@ import { useRouter } from 'next/router';
 import React, { useState } from 'react';
 
 import { SpaceScene } from '@/components/SpaceScene';
-import { useAuth } from '@/context/AuthContext';
-import { useNotificationContext } from '@/context/NotificationContext';
-import { validateEmail } from '@/lib/validation';
+import { useAuth } from '@/contexts/AuthContext';
+import { useNotificationContext } from '@/contexts/NotificationContext';
 
 import type { UserLoginData } from '@/types';
+import type { Theme, SxProps } from '@mui/material/styles';
+
+const validateEmail = (email: string): boolean => {
+  const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/;
+  return emailRegex.test(email);
+};
 
 const LoginPage: React.FC = () => {
-  const theme = useTheme();
+  const theme: Theme = useTheme();
   const router = useRouter();
-  const { signIn } = useAuth();
+  const {login } = useAuth();
   const { showNotification } = useNotificationContext();
   const [formData, setFormData] = useState<UserLoginData>({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
@@ -36,15 +41,20 @@ const LoginPage: React.FC = () => {
     }
 
     try {
-      await signIn(formData.email, formData.password);
+      await login(formData.email, formData.password);
       showNotification({
         message: 'Successfully logged in!',
         type: 'success',
       });
-      router.push('/main');
-    } catch (err) {
+    } catch (err: any) {
+      let errorMessage = 'Invalid email or password';
+      if (err?.response?.status === 404) {
+        errorMessage = 'User not found';
+      } else if (err?.response?.status === 401) {
+        errorMessage = 'Invalid password';
+      }
       showNotification({
-        message: 'Invalid email or password',
+        message: errorMessage,
         type: 'error',
       });
       setLoading(false);
@@ -52,24 +62,17 @@ const LoginPage: React.FC = () => {
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [e.target.name]: e.target.value
+      [name as keyof UserLoginData]: value
     }));
   };
 
   return (
-    <Box
-      sx={{
-        height: '100vh',
-        width: '100vw',
-        display: 'flex',
-        position: 'relative',
-        overflow: 'hidden',
-      }}
-    >
+    <Box className="fullscreen-container" component="div">
       {/* Space Background */}
-      <Box sx={{ position: 'absolute', width: '100%', height: '100%' }}>
+      <Box className="fullsize-absolute" component="div">
         <Canvas
           camera={{ position: [0, 0, 50], fov: 75 }}
           style={{ background: 'linear-gradient(to bottom, #000000, #0a192f)' }}
@@ -98,25 +101,16 @@ const LoginPage: React.FC = () => {
           <Box
             component="form"
             onSubmit={handleSubmit}
-            sx={{
-              p: 4,
-              borderRadius: 2,
-              backdropFilter: 'blur(10px)',
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
-              border: '1px solid rgba(255, 255, 255, 0.18)',
-            }}
+            className="glass-container"
           >
             <Typography
               variant="h4"
-              component="h1"
-              gutterBottom
               sx={{
-                textAlign: 'center',
                 color: 'white',
+                textAlign: 'center',
                 fontWeight: 'bold',
                 mb: 4,
-                textShadow: '0 0 10px rgba(255,255,255,0.5)',
+                textShadow: '0 0 10px rgba(255,255,255,0.5)'
               }}
             >
               Welcome Back
@@ -134,13 +128,14 @@ const LoginPage: React.FC = () => {
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Email sx={{ color: 'white' }} />
+                    <Email sx={{ color: 'white' } as const} />
                   </InputAdornment>
                 ),
               }}
               sx={{
+                mb: 2,
+                input: { color: 'white' },
                 '& .MuiOutlinedInput-root': {
-                  color: 'white',
                   '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.3)' },
                   '&:hover fieldset': { borderColor: 'rgba(255, 255, 255, 0.5)' },
                 },
@@ -160,13 +155,14 @@ const LoginPage: React.FC = () => {
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Lock sx={{ color: 'white' }} />
+                    <Lock sx={{ color: 'white' } as const} />
                   </InputAdornment>
                 ),
               }}
               sx={{
+                mb: 2,
+                input: { color: 'white' },
                 '& .MuiOutlinedInput-root': {
-                  color: 'white',
                   '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.3)' },
                   '&:hover fieldset': { borderColor: 'rgba(255, 255, 255, 0.5)' },
                 },
@@ -175,16 +171,16 @@ const LoginPage: React.FC = () => {
             />
 
             <Button
-              fullWidth
               type="submit"
               variant="contained"
               disabled={loading}
               sx={{
-                mt: 3,
-                mb: 2,
-                height: 48,
-                background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
+                mt: 2,
+                width: '100%',
+                height: '48px',
+                background: 'linear-gradient(45deg, #1976D2 30%, #21CBF3 90%)',
                 boxShadow: '0 3px 5px 2px rgba(33, 203, 243, .3)',
+                color: 'white',
                 '&:hover': {
                   background: 'linear-gradient(45deg, #2196F3 60%, #21CBF3 90%)',
                 },
@@ -195,16 +191,15 @@ const LoginPage: React.FC = () => {
               ) : (
                 <>
                   Login
-                  <ArrowForward sx={{ ml: 1 }} />
+                  <ArrowForward sx={{ ml: 1 } as const} />
                 </>
               )}
             </Button>
 
-            <Box sx={{ textAlign: 'center', mt: 2 }}>
+            <Box component="div">
               <Typography
                 component={NextLink}
                 href="/signup"
-                variant="body2"
                 sx={{
                   color: 'white',
                   textDecoration: 'none',

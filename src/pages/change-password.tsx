@@ -2,7 +2,7 @@
 import { Box, TextField, Button, Typography } from '@mui/material';
 import React, { useState } from 'react';
 
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 const ChangePasswordPage: React.FC = () => {
   const [oldPassword, setOldPassword] = useState('');

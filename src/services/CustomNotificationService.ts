@@ -1,10 +1,11 @@
 import { store, addNotification } from '@/store';
 import type { UserState, HealthEnvironmentData } from '@/types';
 
-export class CustomNotificationService {
+class CustomNotificationService {
   private user: UserState | null = null;
   private token: string | null = null;
   private eventSource: EventSource | null = null;
+  private registered: boolean = false;
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -20,6 +21,51 @@ export class CustomNotificationService {
       } catch (error) {
         console.error('ServiceWorker registration failed:', error);
       }
+    }
+  }
+
+  async register(): Promise<boolean> {
+    try {
+      const response = await fetch('/api/notifications/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(this.token && { Authorization: `Bearer ${this.token}` })
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Registration failed');
+      }
+
+      const data = await response.json();
+      this.registered = true;
+      return true;
+    } catch (error) {
+      console.error('Error registering for notifications:', error);
+      return false;
+    }
+  }
+
+  async unregister(): Promise<boolean> {
+    try {
+      const response = await fetch('/api/notifications/unregister', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(this.token && { Authorization: `Bearer ${this.token}` })
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Unregistration failed');
+      }
+
+      this.registered = false;
+      return true;
+    } catch (error) {
+      console.error('Error unregistering from notifications:', error);
+      return false;
     }
   }
 
@@ -53,6 +99,11 @@ export class CustomNotificationService {
   }
 
   async sendNotification(data: HealthEnvironmentData): Promise<void> {
+    if (!this.registered) {
+      console.warn('Notifications not registered');
+      return;
+    }
+
     try {
       const response = await fetch('/api/notifications/send', {
         method: 'POST',
@@ -73,24 +124,18 @@ export class CustomNotificationService {
   }
 
   handleHealthDataNotification(data: HealthEnvironmentData): void {
-    if (!this.user) return;
+    if (!this.user || !this.registered) return;
 
     if (this.user.settings.notificationPreferences.heartRate && data.heartRate > 100) {
-      this.sendNotification(
-        data
-      );
+      this.sendNotification(data);
     }
 
     if (this.user.settings.notificationPreferences.stepGoal && data.steps > 10000) {
-      this.sendNotification(
-        data
-      );
+      this.sendNotification(data);
     }
 
     if (this.user.settings.notificationPreferences.environmentalImpact && data.environmentalImpactScore > 80) {
-      this.sendNotification(
-        data
-      );
+      this.sendNotification(data);
     }
   }
 
@@ -99,7 +144,12 @@ export class CustomNotificationService {
       this.eventSource.close();
       this.eventSource = null;
     }
+    this.registered = false;
   }
 }
 
-export const notificationService = new CustomNotificationService();
+// Create a singleton instance
+const notificationService = new CustomNotificationService();
+
+// Export the singleton instance instead of the class
+export default notificationService;

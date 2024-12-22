@@ -10,13 +10,27 @@ interface ClusterItem {
   data: HealthEnvironmentData;
 }
 
+interface ClusterManagerConfig {
+  minZoom?: number;
+  maxZoom?: number;
+  radius?: number;
+  minPoints?: number;
+}
+
 class ClusterManager {
   private tree: RBush<ClusterItem>;
   private clusterCache: Map<number, HealthEnvironmentData[]>;
+  private config: Required<ClusterManagerConfig>;
 
-  constructor() {
+  constructor(config?: ClusterManagerConfig) {
     this.tree = new RBush<ClusterItem>();
     this.clusterCache = new Map();
+    this.config = {
+      minZoom: config?.minZoom ?? 1,
+      maxZoom: config?.maxZoom ?? 20,
+      radius: config?.radius ?? 40,
+      minPoints: config?.minPoints ?? 2
+    };
   }
 
   addData(data: HealthEnvironmentData[]) {
@@ -42,7 +56,7 @@ class ClusterManager {
 
   private clusterData(zoom: number): HealthEnvironmentData[] {
     const clustered: HealthEnvironmentData[] = [];
-    const clusterRadius = 40 / Math.pow(2, zoom); // Adjusted radius calculation
+    const clusterRadius = this.config.radius / Math.pow(2, zoom); // Adjusted radius calculation
 
     const allItems = this.tree.all();
     const data = allItems.map(item => item.data);
@@ -59,7 +73,7 @@ class ClusterManager {
 
       const neighbors = this.tree.search(searchBbox);
       
-      if (neighbors.length > 1) {
+      if (neighbors.length > this.config.minPoints) {
         const cluster = neighbors.filter(neighbor => 
           geoDistance([point.longitude!, point.latitude!], [neighbor.data.longitude!, neighbor.data.latitude!]) <= clusterRadius
         ).map(neighbor => neighbor.data);
@@ -90,13 +104,13 @@ class ClusterManager {
 }
 
 // Export a function that creates and returns a ClusterManager instance
-export function createClusterManager(): ClusterManager {
-  return new ClusterManager();
+export function createClusterManager(config?: ClusterManagerConfig): ClusterManager {
+  return new ClusterManager(config);
 }
 
 // Export the clusterData function for backwards compatibility or standalone use
-export function clusterData(data: HealthEnvironmentData[], zoom: number): HealthEnvironmentData[] {
-  const manager = createClusterManager();
+export function clusterData(data: HealthEnvironmentData[], zoom: number, config?: ClusterManagerConfig): HealthEnvironmentData[] {
+  const manager = createClusterManager(config);
   manager.addData(data);
   return manager.getClusters(zoom);
 }

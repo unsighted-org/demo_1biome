@@ -10,9 +10,9 @@ import { useRouter } from 'next/router';
 import React, { useState, useCallback, useEffect } from 'react';
 
 import CustomButton from '@/components/CustomButton';
-import { useAuth } from '@/context/AuthContext';
-import { useNotificationContext } from '@/context/NotificationContext';
-import { withAuth } from '@/context/withAuth';
+import { useAuth } from '@/contexts/AuthContext';
+import { useNotificationContext } from '@/contexts/NotificationContext';
+import withAuth from '@/components/withAuth';
 import { useAppSelector } from '@/store';
 
 import type { UserSettings, UserState } from '@/types';

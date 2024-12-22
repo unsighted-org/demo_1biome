@@ -6,6 +6,8 @@ const initialState: HealthState = {
   lastSyncTime: null,
   scores: null,
   regionalComparison: null,
+  loading: false,
+  error: null
 };
 
 // Create actions for triggering notifications

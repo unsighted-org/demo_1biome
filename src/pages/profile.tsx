@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useAppSelector } from '@/store';
-import { useHealthData } from '@/hooks/useHealthData';
+import { useHealth } from '@/contexts/HealthContext';
 import DashboardErrorBoundary from '../components/DashboardWithErrorBoundary';
 import { MAX_PAGES } from '@/constants';
 
@@ -10,7 +10,7 @@ const ProfilePage: React.FC = () => {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [pageNumber, setPageNumber] = useState(1);
-  const { loading, error, fetchHealthData } = useHealthData(user);
+  const { loading, error, fetchHealthData } = useHealth();
   const { data: healthData, scores: healthScores, regionalComparison } = useAppSelector((state) => state.health);
 
   useEffect(() => {

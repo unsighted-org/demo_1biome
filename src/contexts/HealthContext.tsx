@@ -5,7 +5,7 @@ import healthService from '@/services/HealthService';
 
 import type { HealthEnvironmentData, HealthState, HealthMetric } from '@/types';
 
-interface HealthContextType {
+export interface HealthContextType {
   healthData: HealthEnvironmentData[];
   visibleData: HealthEnvironmentData[];
   loading: boolean;
@@ -106,7 +106,11 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }));
     });
 
-    return () => unsubscribe();
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
   }, []);
 
   const visibleData = useMemo(() => {

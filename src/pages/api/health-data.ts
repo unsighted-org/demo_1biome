@@ -2,7 +2,7 @@ import { verify, Secret, JwtPayload } from 'jsonwebtoken';
 import { ObjectId } from 'mongodb';
 import { Server as SocketIOServer } from 'socket.io';
 
-import { getActivityLevel, getDetailedLocation } from '@/lib/helpers';
+import { getActivityLevel, getLocationInfo } from '@/lib/helpers';
 import {
   CACHE_DURATION,
   TOTAL_MOCK_DATA,
@@ -40,7 +40,7 @@ async function generateMockData(startIndex: number, count: number, req: Incoming
       const timestamp = new Date(Date.now() - index * 24 * 60 * 60 * 1000).toISOString();
       const latitude = (Math.random() * 180) - 90;
       const longitude = (Math.random() * 360) - 180;
-      const locationDetails = await getDetailedLocation(latitude, longitude, req);
+      const locationDetails = await getLocationInfo(latitude, longitude);
       const weight = Math.floor(Math.random() * 10) + 60;
       const height = Math.floor(Math.random() * 50) + 150;
 
@@ -77,10 +77,11 @@ async function generateMockData(startIndex: number, count: number, req: Incoming
         respiratoryHealthScore: Math.floor(Math.random() * 100),
         physicalActivityScore: Math.floor(Math.random() * 100),
         environmentalImpactScore: Math.floor(Math.random() * 100),
-        nearestCity: locationDetails.nearestCity || '',
-        onBorder: locationDetails.onBorder || [],
-        country: locationDetails.country,
-        continent: locationDetails.continent,
+        nearestCity: locationDetails?.city || 'Unknown',
+        onBorder: [],  // Initialize as empty array since we don't have border data
+        country: locationDetails?.country || 'Unknown',
+        continent: locationDetails?.continent || 'Unknown',
+        state: locationDetails?.state || 'Unknown',
         airQualityDescription: 'Moderate',
         uvIndexDescription: 'Low',
         noiseLevelDescription: 'Normal',
@@ -156,7 +157,7 @@ export default async function getHealthData(
     // Fetch detailed location data
     paginatedData = await Promise.all(
       paginatedData.map(async (data) => {
-        const locationDetails = await getDetailedLocation(Number(data.latitude), Number(data.longitude), req);
+        const locationDetails = await getLocationInfo(Number(data.latitude), Number(data.longitude));
         return { ...data, ...locationDetails };
       })
     );

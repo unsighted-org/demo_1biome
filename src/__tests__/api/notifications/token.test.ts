@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import handler from '../../../pages/api/notifications/token';
-import { createMocks, MockRequest, MockResponse } from 'node-mocks-http';
-import { azureStorageConfig } from '@/config/azureBlobStorage';
-// import { azureConfig } from '@/config/azureConfig';
+import { createMocks } from 'node-mocks-http';
+import type { NextApiRequest, NextApiResponse } from 'next';
+import handler from '@/pages/api/notifications/token';
+import { AZURE_COSMOSDB_CONFIG } from '@/constants/azureConstants';
 
 jest.mock('@azure/storage-blob', () => ({
   StorageSharedKeyCredential: jest.fn(),
@@ -17,24 +17,16 @@ jest.mock('@azure/storage-blob', () => ({
   },
 }));
 
-jest.mock('@/config/azureConfig', () => ({
-  azureConfig: {
+jest.mock('@/constants/azureConstants', () => ({
+  AZURE_COSMOSDB_CONFIG: {
     notificationHubName: 'notification-hub',
     connectionString: 'test-connection-string',
   },
 }));
 
-jest.mock('@/config/azureBlobStorage', () => ({
-  azureStorageConfig: {
-    accountName: 'your-account-name',
-    accountKey: 'your-account-key',
-    containerName: 'your-container-name',
-  },
-}));
-
 describe('Token API', () => {
-  let req: MockRequest<any>;
-  let res: MockResponse<any>;
+  let req: NextApiRequest;
+  let res: NextApiResponse;
 
   beforeEach(() => {
     const { req: request, res: response } = createMocks({
@@ -43,40 +35,43 @@ describe('Token API', () => {
         hubName: 'notification-hub',
       },
     });
-    req = request;
-    res = response;
+
+    // Cast the mocked request and response to their proper types
+    req = request as unknown as NextApiRequest;
+    res = response as unknown as NextApiResponse;
   });
 
   it('should return a valid SAS token', async () => {
     await handler(req, res);
-    expect(res.statusCode).toBe(200);
-    expect(res._getJSONData()).toEqual({ token: 'mocked-sas-token' });
+    expect((res as any)._getStatusCode()).toBe(200);
+    expect(JSON.parse((res as any)._getData())).toEqual({ token: 'mocked-sas-token' });
   });
 
   it('should return an error if the method is not POST', async () => {
     req.method = 'GET';
     await handler(req, res);
-    expect(res.statusCode).toBe(405);
-    expect(res._getJSONData()).toEqual({ error: 'Method Not Allowed' });
+    expect((res as any)._getStatusCode()).toBe(405);
+    expect(JSON.parse((res as any)._getData())).toEqual({ error: 'Method Not Allowed' });
   });
 
   it('should return an error if the hub name is invalid', async () => {
-    req.body.hubName = 'invalid-hub-name';
+    (req.body as any).hubName = 'invalid-hub-name';
     await handler(req, res);
-    expect(res.statusCode).toBe(400);
-    expect(res._getJSONData()).toEqual({ error: 'Invalid hub name' });
+    expect((res as any)._getStatusCode()).toBe(400);
+    expect(JSON.parse((res as any)._getData())).toEqual({ error: 'Invalid hub name' });
   });
 
   it('should return an error if Azure Storage configuration is missing', async () => {
-    const originalConfig = { ...azureStorageConfig };
-    Object.assign(azureStorageConfig, { accountName: '', accountKey: '', containerName: '' });
+    const { AZURE_COSMOSDB_CONFIG: config } = require('@/constants/azureConstants');
+    const originalConfig = { ...config };
+    Object.assign(config, { notificationHubName: '', connectionString: '' });
 
     await handler(req, res);
-    expect(res.statusCode).toBe(500);
-    expect(res._getJSONData()).toEqual({ error: 'Missing Azure Storage configuration' });
+    expect((res as any)._getStatusCode()).toBe(500);
+    expect(JSON.parse((res as any)._getData())).toEqual({ error: 'Missing Azure Storage configuration' });
 
     // Restore original config
-    Object.assign(azureStorageConfig, originalConfig);
+    Object.assign(config, originalConfig);
   });
 
   it('should return an error if an error occurs while generating the SAS token', async () => {
@@ -89,8 +84,8 @@ describe('Token API', () => {
     await handler(req, res);
 
     expect(consoleErrorSpy).toHaveBeenCalledWith('Error generating SAS token:', expect.any(Error));
-    expect(res.statusCode).toBe(500);
-    expect(res._getJSONData()).toEqual({ error: 'Failed to generate SAS token' });
+    expect((res as any)._getStatusCode()).toBe(500);
+    expect(JSON.parse((res as any)._getData())).toEqual({ error: 'Failed to generate SAS token' });
 
     consoleErrorSpy.mockRestore();
   });

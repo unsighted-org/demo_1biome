@@ -1,144 +1,135 @@
-import { notificationService } from '@/services/NotificationService';
-import { server } from '../mocks/server';
-import { rest } from 'msw';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import '@testing-library/jest-dom';
-import { store, setFCMToken } from '@/store';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import notificationService from '@/services/CustomNotificationService';
 
-jest.mock('@/store', () => ({
-  store: {
-    dispatch: jest.fn(),
-  },
-  setFCMToken: jest.fn(),
-}));
-
-type MockFetchResponse = {
-  ok: boolean;
-  json: () => Promise<any>;
-  text?: () => Promise<string>;
+type MockFetchInit = {
+  ok?: boolean;
+  jsonData?: any;
+  textData?: string;
 };
 
-global.fetch = jest.fn() as jest.MockedFunction<typeof fetch>;
+class MockFetchResponse {
+  readonly headers: Headers;
+  readonly ok: boolean;
+  readonly redirected: boolean;
+  readonly status: number;
+  readonly statusText: string;
+  readonly type: ResponseType;
+  readonly url: string;
+  readonly body: ReadableStream<Uint8Array> | null;
+  readonly bodyUsed: boolean;
+  private readonly _jsonData?: any;
+  private readonly _textData?: string;
+  private readonly _bytes: Uint8Array;
+
+  constructor(init: MockFetchInit) {
+    this.ok = init.ok ?? true;
+    this._jsonData = init.jsonData;
+    this._textData = init.textData;
+    this._bytes = new Uint8Array();
+    this.headers = new Headers();
+    this.redirected = false;
+    this.status = init.ok ? 200 : 400;
+    this.statusText = init.ok ? 'OK' : 'Bad Request';
+    this.type = 'default';
+    this.url = 'http://localhost';
+    this.body = null;
+    this.bodyUsed = false;
+  }
+
+  async json(): Promise<any> {
+    if (this._jsonData !== undefined) return this._jsonData;
+    throw new Error('No JSON data available');
+  }
+
+  async text(): Promise<string> {
+    if (this._textData !== undefined) return this._textData;
+    throw new Error('No text data available');
+  }
+
+  async bytes(): Promise<Uint8Array> {
+    return this._bytes;
+  }
+
+  clone(): MockFetchResponse {
+    return new MockFetchResponse({
+      ok: this.ok,
+      jsonData: this._jsonData,
+      textData: this._textData
+    });
+  }
+
+  async arrayBuffer(): Promise<ArrayBuffer> {
+    const buffer = new ArrayBuffer(this._bytes.length);
+    new Uint8Array(buffer).set(this._bytes);
+    return buffer;
+  }
+
+  async blob(): Promise<Blob> {
+    return new Blob([this._bytes]);
+  }
+
+  async formData(): Promise<FormData> {
+    return new FormData();
+  }
+}
 
 describe('NotificationService', () => {
-  beforeAll(() => server.listen());
-
+  const originalFetch = global.fetch;
+  
   beforeEach(() => {
-    jest.resetAllMocks();
+    // Reset fetch mock before each test
+    global.fetch = jest.fn() as jest.MockedFunction<typeof fetch>;
   });
 
   afterEach(() => {
-    server.resetHandlers();
-    jest.clearAllMocks();
+    // Restore original fetch after each test
+    global.fetch = originalFetch;
   });
 
-  afterAll(() => server.close());
-
-  const mockUser = {
-    id: 'test-user',
-    token: 'user-token',
-    _id: '',
-    email: '',
-    name: '',
-    createdAt: '',
-    dateOfBirth: '',
-    height: 0,
-    weight: 0,
-    avatarUrl: null,
-    connectedDevices: [],
-    settings: {
-      connectedDevices: [],
-      dailyReminder: false,
-      weeklySummary: false,
-      shareData: false,
-      notificationsEnabled: false,
-      notificationPreferences: {
-        heartRate: false,
-        stepGoal: false,
-        environmentalImpact: false
-      },
-      dataRetentionPeriod: 0
-    },
-    fcmToken: null,
-    enabled: false
-  };
-
-  it('should get token successfully', async () => {
-    server.use(
-      rest.get('/api/token', (req, res, ctx) => {
-        return res(
-          ctx.json({ token: 'test-token' })
-        );
-      })
-    );
-
-    notificationService.setAuthContext(mockUser as any, 'user-token');
-    const token = await notificationService.getTokenWithRetry();
-    expect(token).toBe('test-token');
-  });
-
-  it('should handle token fetch failure gracefully', async () => {
-    server.use(
-      rest.get('/api/token', (req, res, ctx) => {
-        return res(
-          ctx.status(500),
-          ctx.json({ error: 'Internal Server Error' })
-        );
-      })
-    );
-
-    notificationService.setAuthContext(mockUser as any, 'user-token');
-    await expect(notificationService.getTokenWithRetry()).rejects.toThrow('Internal Server Error');
-  });
-
-  it('should register for push notifications successfully', async () => {
-    (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce({
+  it('should register for notifications successfully', async () => {
+    const mockResponse = new MockFetchResponse({
       ok: true,
-      json: async () => ({
-        token: 'test-token',
-      }),
-    } as unknown as Response)
-      .mockResolvedValueOnce({
-        ok: true,
-      } as MockFetchResponse);  
+      jsonData: { token: 'test-token' }
+    });
+    (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce(mockResponse as unknown as Response);
 
-
-    notificationService.setAuthContext(mockUser as any, 'user-token');
-    await notificationService.init();
-    expect(store.dispatch).toHaveBeenCalledWith(setFCMToken('test-token'));
+    const result = await notificationService.register();
+    expect(result).toBe(true);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
   it('should handle registration failure', async () => {
-    (global.fetch as jest.MockedFunction<typeof fetch>)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ token: 'test-token' }),
-      } as MockFetchResponse)
-      .mockResolvedValueOnce({
-        ok: false,
-        text: async () => 'Registration failed',
-      } as MockFetchResponse);
+    const mockResponse = new MockFetchResponse({
+      ok: false,
+      textData: 'Registration failed'
+    });
+    (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce(mockResponse as unknown as Response);
 
-    notificationService.setAuthContext(mockUser as any, 'user-token');
-    await expect(notificationService.init()).rejects.toThrow('Failed to register with Azure Notification Hubs: Registration failed');
+    const result = await notificationService.register();
+    expect(result).toBe(false);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
-  it('should update user preferences', () => {
-    const newPreferences = {
-      heartRate: true,
-      stepGoal: true,
-      environmentalImpact: true
-    };
-    notificationService.setAuthContext(mockUser as any, 'user-token');
-    notificationService.updateUserPreferences(newPreferences);
-    expect(notificationService['user']?.settings.notificationPreferences).toEqual(newPreferences);
+  it('should unregister from notifications successfully', async () => {
+    const mockResponse = new MockFetchResponse({
+      ok: true
+    });
+    (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce(mockResponse as unknown as Response);
+
+    const result = await notificationService.unregister();
+    expect(result).toBe(true);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
-  it('should handle notifications', () => {
-    const consoleSpy = jest.spyOn(console, 'log');
-    const notification = { title: 'Test', message: 'This is a test notification' };
-    notificationService.handleNotification(notification);
-    expect(consoleSpy).toHaveBeenCalledWith('Received notification:', notification);
-    expect(store.dispatch).toHaveBeenCalledWith(expect.any(Function));
+  it('should handle unregistration failure', async () => {
+    const mockResponse = new MockFetchResponse({
+      ok: false,
+      textData: 'Unregistration failed'
+    });
+    (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValueOnce(mockResponse as unknown as Response);
+
+    const result = await notificationService.unregister();
+    expect(result).toBe(false);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,7 +1,27 @@
 // theme.ts
-import { createTheme, responsiveFontSizes } from '@mui/material/styles';
+import { createTheme, responsiveFontSizes, Components, Theme } from '@mui/material/styles';
+import { BoxProps } from '@mui/material/Box';
 
-let theme = createTheme({
+declare module '@mui/material/styles' {
+  interface ComponentNameToClassKey {
+    MuiBox: keyof BoxProps;
+  }
+
+  interface Components<Theme = unknown> {
+    MuiBox?: {
+      defaultProps?: BoxProps;
+      styleOverrides?: {
+        root?: React.CSSProperties;
+      };
+      variants?: Array<{
+        props: { className: string };
+        style: React.CSSProperties;
+      }>;
+    };
+  }
+}
+
+const baseTheme = createTheme({
   palette: {
     mode: 'dark', // Enforce dark mode
     primary: {
@@ -65,9 +85,48 @@ let theme = createTheme({
         },
       },
     },
+    MuiBox: {
+      styleOverrides: {
+        root: {},
+      },
+      variants: [
+        {
+          props: { className: 'fullscreen-container' },
+          style: {
+            display: 'flex',
+            height: '100vh',
+            width: '100vw',
+            position: 'relative',
+            overflow: 'hidden'
+          },
+        },
+        {
+          props: { className: 'fullsize-absolute' },
+          style: {
+            position: 'absolute',
+            width: '100%',
+            height: '100%'
+          },
+        },
+        {
+          props: { className: 'glass-container' },
+          style: {
+            position: 'relative',
+            zIndex: 1,
+            margin: 'auto',
+            padding: '32px',
+            borderRadius: '16px',
+            backdropFilter: 'blur(10px)',
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
+            border: '1px solid rgba(255, 255, 255, 0.18)'
+          },
+        },
+      ],
+    },
   },
 });
 
-theme = responsiveFontSizes(theme);
+const theme = responsiveFontSizes(baseTheme);
 
 export default theme;

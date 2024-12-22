@@ -18,16 +18,68 @@ import {
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
 import React, { useEffect } from 'react';
+import styled from '@emotion/styled';
+import type { Theme } from '@mui/material/styles';
+import type { SystemStyleObject } from '@mui/system';
 
 import HealthTrendChart from '@/components/HealthTrendChart';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useHealth, HealthContextType } from '@/contexts/HealthContext';
 import { formatDate, calculateBMI, getActivityLevel, getEnvironmentalImpact, getAirQualityDescription } from '@/lib/helpers';
-import { notificationService } from '@/services/CustomNotificationService';
 
 import type { NextPage } from 'next';
+import notificationService from '@/services/CustomNotificationService';
 
 const AnimatedGlobe = dynamic(() => import('@/components/AnimatedGlobe'), { ssr: false });
+
+// Predefined styles to reduce complexity
+const mainBoxStyles: SystemStyleObject<Theme> = {
+  minHeight: '100vh',
+  overflow: 'auto',
+  display: 'flex',
+  flexDirection: 'column',
+  bgcolor: 'black',
+  p: 2
+} as const;
+
+const headerBoxStyles: SystemStyleObject<Theme> = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  color: 'white',
+  mb: 2
+} as const;
+
+const globeBoxStyles: SystemStyleObject<Theme> = {
+  height: '60vh',
+  minHeight: '400px'
+} as const;
+
+const paperStyles: SystemStyleObject<Theme> = {
+  p: 2,
+  bgcolor: 'rgba(255,255,255,0.1)',
+  borderRadius: 2,
+  height: '100%'
+} as const;
+
+const summaryPaperStyles: SystemStyleObject<Theme> = {
+  ...paperStyles,
+  mt: 3,
+  overflow: 'auto'
+} as const;
+
+const tableCellStyles: SystemStyleObject<Theme> = {
+  color: 'white'
+} as const;
+
+const LoadingContainer = styled(Box)({
+  display: 'flex',
+  flexDirection: 'column',
+  justifyContent: 'center',
+  alignItems: 'center',
+  height: '100vh',
+  backgroundColor: 'black'
+});
 
 const GlobePage: NextPage = () => {
   const { 
@@ -51,16 +103,16 @@ const GlobePage: NextPage = () => {
 
   if (authLoading || healthLoading) {
     return (
-      <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" height="100vh" bgcolor="black">
+      <LoadingContainer>
         <CircularProgress size={60} />
         <Typography variant="h6" sx={{ marginTop: '20px', color: 'white' }}>Loading your health data...</Typography>
-      </Box>
+      </LoadingContainer>
     );
   }
 
   if (error) {
     return (
-      <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" height="100vh" bgcolor="black">
+      <LoadingContainer>
         <Error color="error" sx={{ fontSize: 60, marginBottom: '20px' }} />
         <Typography variant="h6" color="error" gutterBottom>
           {error}
@@ -74,7 +126,7 @@ const GlobePage: NextPage = () => {
         >
           Retry
         </Button>
-      </Box>
+      </LoadingContainer>
     );
   }
 
@@ -83,8 +135,8 @@ const GlobePage: NextPage = () => {
   }
 
   return (
-    <Box component="main" sx={{ minHeight: '100vh', overflow: 'auto', display: 'flex', flexDirection: 'column', bgcolor: 'black', p: 2 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'white', mb: 2 }}>
+    <Box component="main" sx={mainBoxStyles}>
+      <Box sx={headerBoxStyles}>
         <Typography variant="h4">Your Health Globe</Typography>
         <Button variant="contained" onClick={() => fetchHealthData(1)} startIcon={<Refresh />}>Refresh Data</Button>
       </Box>
@@ -92,41 +144,49 @@ const GlobePage: NextPage = () => {
       <Grid container spacing={3}>
         <Grid item xs={12} md={8}>
           {healthData.length > 0 ? (
-            <Box sx={{ height: '60vh', minHeight: '400px' }}>
+            <Box sx={globeBoxStyles}>
               <AnimatedGlobe 
-                healthData={healthData} 
-                isLoading={healthLoading} 
-                error={error} 
+                onLocationHover={(location: { name: string; country: string; state: string; continent: string; } | null) => {
+                  // Handle location hover if needed
+                  console.log('Location hover:', location);
+                }} 
+                onPointSelect={(point) => {
+                  // Handle point selection if needed
+                  console.log('Point selected:', point);
+                }}
               />
             </Box>
           ) : (
-            <Box display="flex" justifyContent="center" alignItems="center" height="60vh" minHeight="400px">
+            <Box sx={globeBoxStyles} display="flex" justifyContent="center" alignItems="center">
               <Typography variant="h6" color="white">No health data available. Start tracking to see your globe!</Typography>
             </Box>
           )}
         </Grid>
         <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 2, height: '100%' }}>
+          <Paper sx={paperStyles}>
             <Typography variant="h6" gutterBottom color="white">Health Trends</Typography>
-            <HealthTrendChart healthData={healthData} />
+            <HealthTrendChart onDataUpdate={(data, selectedMetrics) => {
+              // Handle data updates here if needed
+              console.log('Health trend data updated:', data, selectedMetrics);
+            }} />
           </Paper>
         </Grid>
       </Grid>
 
-      <Paper sx={{ p: 2, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 2, mt: 3, overflow: 'auto' }}>
+      <Paper sx={summaryPaperStyles}>
         <Typography variant="h6" gutterBottom color="white">Health Data Summary</Typography>
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell sx={{ color: 'white' }}>Date</TableCell>
-              <TableCell sx={{ color: 'white' }}>Steps</TableCell>
-              <TableCell sx={{ color: 'white' }}>Activity Level</TableCell>
-              <TableCell sx={{ color: 'white' }}>Heart Rate</TableCell>
+              <TableCell sx={tableCellStyles}>Date</TableCell>
+              <TableCell sx={tableCellStyles}>Steps</TableCell>
+              <TableCell sx={tableCellStyles}>Activity Level</TableCell>
+              <TableCell sx={tableCellStyles}>Heart Rate</TableCell>
               {!isMobile && (
                 <>
-                  <TableCell sx={{ color: 'white' }}>BMI</TableCell>
-                  <TableCell sx={{ color: 'white' }}>Environmental Impact</TableCell>
-                  <TableCell sx={{ color: 'white' }}>Air Quality</TableCell>
+                  <TableCell sx={tableCellStyles}>BMI</TableCell>
+                  <TableCell sx={tableCellStyles}>Environmental Impact</TableCell>
+                  <TableCell sx={tableCellStyles}>Air Quality</TableCell>
                 </>
               )}
             </TableRow>
@@ -135,15 +195,15 @@ const GlobePage: NextPage = () => {
             {healthData.length > 0 ? (
               healthData.map((data: any) => (
                 <TableRow key={data.timestamp}>
-                  <TableCell>{formatDate(data.timestamp.toString())}</TableCell>
-                  <TableCell>{data.steps}</TableCell>
-                  <TableCell>{data.steps ? getActivityLevel(Number(data.steps)) : ''}</TableCell>
-                  <TableCell>{data.heartRate}</TableCell>
+                  <TableCell sx={tableCellStyles}>{formatDate(data.timestamp.toString())}</TableCell>
+                  <TableCell sx={tableCellStyles}>{data.steps}</TableCell>
+                  <TableCell sx={tableCellStyles}>{data.steps ? getActivityLevel(Number(data.steps)) : ''}</TableCell>
+                  <TableCell sx={tableCellStyles}>{data.heartRate}</TableCell>
                   {!isMobile && (
                     <>
-                      <TableCell>{calculateBMI(Number(data.weight), Number(data.height))}</TableCell>
-                      <TableCell>{getEnvironmentalImpact(data)}</TableCell>
-                      <TableCell>{getAirQualityDescription(Number(data.airQualityIndex))}</TableCell>
+                      <TableCell sx={tableCellStyles}>{calculateBMI(Number(data.weight), Number(data.height))}</TableCell>
+                      <TableCell sx={tableCellStyles}>{getEnvironmentalImpact(data)}</TableCell>
+                      <TableCell sx={tableCellStyles}>{getAirQualityDescription(Number(data.airQualityIndex))}</TableCell>
                     </>
                   )}
                 </TableRow>

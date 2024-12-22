@@ -97,29 +97,35 @@ class HealthService {
   }
 
   private updateCacheWithNewData(newData: HealthEnvironmentData): void {
-    for (const [page, cachedData] of this.cachedHealthData.entries()) {
-      const index = cachedData.data.findIndex(item => item.timestamp === newData.timestamp);
-      if (index !== -1) {
-        cachedData.data[index] = newData;
-        this.cachedHealthData.set(page, { ...cachedData, timestamp: Date.now() });
-        this.notifySubscribers(newData);
-        break;
-      }
+    const pageEntries = Array.from(this.cachedHealthData.entries());
+    const pageWithData = pageEntries.find(([_, cachedData]) => 
+      cachedData.data.some(item => item.timestamp === newData.timestamp)
+    );
+
+    if (pageWithData) {
+      const [page, cachedData] = pageWithData;
+      const updatedData = {
+        data: cachedData.data.map(item => 
+          item.timestamp === newData.timestamp ? newData : item
+        ),
+        timestamp: Date.now()
+      };
+      this.cachedHealthData.set(page, updatedData);
+      this.notifySubscribers(newData);
     }
 
-    if (this.cachedHealthData.size > MAX_CACHE_SIZE) {
-      let oldestKey = -1;
-      let oldestTimestamp = Infinity;
-      for (const [key, value] of this.cachedHealthData.entries()) {
-        if (value.timestamp < oldestTimestamp) {
-          oldestKey = key;
-          oldestTimestamp = value.timestamp;
-        }
-      }
-      if (oldestKey !== -1) {
-        this.cachedHealthData.delete(oldestKey);
-      }
-    }
+    this.pruneCache();
+  }
+
+  private pruneCache(): void {
+    if (this.cachedHealthData.size <= MAX_CACHE_SIZE) return;
+
+    const oldestEntry = Array.from(this.cachedHealthData.entries())
+      .reduce((oldest, current) => 
+        current[1].timestamp < oldest[1].timestamp ? current : oldest
+      );
+
+    this.cachedHealthData.delete(oldestEntry[0]);
   }
 
   private notifySubscribers(data: HealthEnvironmentData): void {

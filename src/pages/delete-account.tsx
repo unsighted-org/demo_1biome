@@ -3,7 +3,7 @@ import { Box, TextField, Button, Typography, Alert, Container, Paper, CircularPr
 import { useRouter } from 'next/router';
 import React, { useState } from 'react';
 
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 const DeleteAccountPage: React.FC = () => {
   const [password, setPassword] = useState('');

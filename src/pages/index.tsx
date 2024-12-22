@@ -1,8 +1,24 @@
 import { Box, CircularProgress, Typography } from '@mui/material';
+import { styled } from '@mui/material/styles';
 import { useRouter } from 'next/router';
 import React, { useEffect } from 'react';
 
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
+
+const LoadingContainer = styled(Box)({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  height: '100vh'
+});
+
+const RedirectContainer = styled(Box)({
+  display: 'flex', 
+  alignItems: 'center', 
+  justifyContent: 'center', 
+  height: '100vh'
+});
 
 const Home: React.FC = (): JSX.Element => {
   const { user, loading } = useAuth();
@@ -20,32 +36,17 @@ const Home: React.FC = (): JSX.Element => {
 
   if (loading) {
     return (
-      <Box 
-        sx={{ 
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100vh'
-        }}
-      >
+      <LoadingContainer>
         <CircularProgress size={60} />
         <Typography variant="h6" sx={{ mt: 2 }}>Loading...</Typography>
-      </Box>
+      </LoadingContainer>
     );
   }
 
   return (
-    <Box 
-      sx={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        height: '100vh' 
-      }}
-    >
+    <RedirectContainer>
       <Typography variant="h5">Redirecting...</Typography>
-    </Box>
+    </RedirectContainer>
   );
 };
 

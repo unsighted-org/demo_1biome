@@ -1,25 +1,84 @@
 import bcrypt from 'bcrypt';
 import dotenv from 'dotenv';
 import { verify } from 'jsonwebtoken';
-import { ObjectId } from 'mongodb';
+import { ObjectId, Document, Collection, WithId, ModifyResult } from 'mongodb';
 
 import { getCollection } from '@/config/azureCosmosClient';
-
-import type { ServerUser, ServerUserSettings, UserState, UserSettings } from '@/types';
+import type { InMemoryCollection } from '@/config/types';
+import type { UserState, UserSettings, UserResponse } from '@/types';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import type { Secret } from 'next-auth/jwt';
 import { COLLECTIONS } from '@/constants/collections';
 
 dotenv.config();
 
-interface ServerUserWithPassword extends ServerUser {
+interface ServerUserWithPassword {
+    _id: ObjectId;
+    email: string;
     password: string;
+    name: string;
+    createdAt: Date;
+    dateOfBirth: Date;
+    connectedDevices: ObjectId[];
     fcmToken: string | null;
+    isDeleted?: boolean;
+    deletedAt?: Date;
 }
 
-export type UserResponse = Omit<UserState, 'password'>;
+interface ExtendedUserResponse extends UserResponse {
+  height: number;
+  weight: number;
+  avatarUrl: string | null;
+}
 
-function convertToUserResponse(serverUser: ServerUserWithPassword, serverSettings: ServerUserSettings | null, token: string): UserResponse {
+type MongoCollection = Collection<Document> | InMemoryCollection;
+
+interface ServerSettings extends WithId<Document> {
+  _id: ObjectId;
+  userId: ObjectId;
+  dateOfBirth: Date;
+  height: number;
+  weight: number;
+  connectedDevices: ObjectId[];
+  dailyReminder: boolean;
+  weeklySummary: boolean;
+  shareData: boolean;
+  notificationsEnabled: boolean;
+  dataRetentionPeriod: number;
+  notificationPreferences: {
+    heartRate: boolean;
+    stepGoal: boolean;
+    environmentalImpact: boolean;
+  };
+}
+
+async function findOneAndUpdateDocument<T extends Document>(
+  collection: MongoCollection,
+  filter: Document,
+  update: Document,
+  options: { returnDocument?: 'before' | 'after', upsert?: boolean } = { returnDocument: 'after' }
+): Promise<ModifyResult<T>> {
+  if ('findOneAndUpdate' in collection) {
+    const result = await collection.findOneAndUpdate(filter, update, { ...options, includeResultMetadata: true });
+    return result as unknown as ModifyResult<T>;
+  }
+  // For InMemoryCollection, simulate findOneAndUpdate
+  const result = await collection.updateOne(filter, update);
+  if (result.modifiedCount > 0 || (options.upsert && result.acknowledged)) {
+    const doc = await collection.findOne(filter);
+    if (!doc) {
+      return { value: null, ok: 0, lastErrorObject: { n: 0, updatedExisting: false } };
+    }
+    return { 
+      value: { ...doc, _id: new ObjectId(doc._id) } as WithId<T>,
+      ok: 1,
+      lastErrorObject: { n: 1, updatedExisting: true }
+    };
+  }
+  return { value: null, ok: 0, lastErrorObject: { n: 0, updatedExisting: false } };
+}
+
+function convertToUserResponse(serverUser: WithId<ServerUserWithPassword>, serverSettings: WithId<ServerSettings> | null, token: string): ExtendedUserResponse {
     const { password: _, ...userWithoutPassword } = serverUser;
     const settings: Omit<UserSettings, '_id' | 'userId'> = serverSettings 
         ? {
@@ -46,10 +105,12 @@ function convertToUserResponse(serverUser: ServerUserWithPassword, serverSetting
         settings,
         token,
         enabled: true,
-        fcmToken: serverUser.fcmToken || null
+        fcmToken: serverUser.fcmToken || null,
+        height: serverSettings?.height || 0,
+        weight: serverSettings?.weight || 0,
+        avatarUrl: null
     };
 }
-
 
 const verifyToken = (token: string): Promise<string | null> => {
     if (!process.env.JWT_SECRET) return Promise.resolve(null);
@@ -79,8 +140,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     try {
-        const usersCollection = await getCollection(COLLECTIONS.USERS);
-        const settingsCollection = await getCollection(COLLECTIONS.SETTINGS);
+        const usersCollection = await getCollection(COLLECTIONS.USERS) as MongoCollection;
+        const settingsCollection = await getCollection(COLLECTIONS.SETTINGS) as MongoCollection;
         
         switch (method) {
             case 'GET':
@@ -88,7 +149,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 if (!serverUser) {
                     return res.status(404).json({ error: 'User not found' });
                 }
-                const serverSettings = await settingsCollection.findOne({ userId: new ObjectId(userId) }) as ServerUserSettings | null;
+                const serverSettings = await settingsCollection.findOne({ userId: new ObjectId(userId) }) as ServerSettings | null;
                 const userResponse = convertToUserResponse(serverUser, serverSettings, token);
                 return res.status(200).json(userResponse);
 
@@ -103,22 +164,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 if (updateData.createdAt) {
                     updateData.createdAt = new Date(updateData.createdAt);
                 }
-                const updatedServerUser = await usersCollection.findOneAndUpdate(
+                const updatedServerUser = await findOneAndUpdateDocument<ServerUserWithPassword>(
+                    usersCollection,
                     { _id: new ObjectId(userId) },
                     { $set: updateData },
                     { returnDocument: 'after' }
                 );
-                if (!updatedServerUser) {
+
+                if (!updatedServerUser.value) {
                     return res.status(404).json({ error: 'User not found' });
                 }
-                const updatedServerSettings = await settingsCollection.findOne({ userId: new ObjectId(userId) }) as ServerUserSettings | null;
-                const updatedUserResponse = convertToUserResponse(updatedServerUser.value as ServerUserWithPassword, updatedServerSettings, token);
+
+                const updatedServerSettings = await settingsCollection.findOne({ userId: new ObjectId(userId) }) as ServerSettings | null;
+                const updatedUserResponse = convertToUserResponse(updatedServerUser.value, updatedServerSettings, token);
                 return res.status(200).json(updatedUserResponse);
 
             case 'POST':
                 switch (req.body.action) {
                     case 'updateSettings':
-                        const settings: Partial<ServerUserSettings> = req.body.settings;
+                        const settings: Partial<ServerSettings> = req.body.settings;
                         if (settings.connectedDevices) {
                             settings.connectedDevices = settings.connectedDevices.map(id => new ObjectId(id));
                         }
@@ -127,7 +191,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                         }
 
                         // Ensure notificationPreferences are properly handled
-                        // Proper handling of notificationPreferences
                         if (settings.notificationPreferences) {
                             settings.notificationPreferences = {
                                 heartRate: !!settings.notificationPreferences.heartRate,
@@ -136,20 +199,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                             };
                         }
 
-                        const updatedSettings = await settingsCollection.findOneAndUpdate(
+                        const updatedSettings = await findOneAndUpdateDocument<ServerSettings>(
+                            settingsCollection,
                             { userId: new ObjectId(userId) },
                             { $set: settings },
                             { upsert: true, returnDocument: 'after' }
                         );
 
-                        if (!updatedSettings) {
+                        if (!updatedSettings.value) {
                             return res.status(500).json({ error: 'Failed to update settings' });
                         }
                         const userForSettings = await usersCollection.findOne({ _id: new ObjectId(userId) }) as ServerUserWithPassword;
                         if (!userForSettings) {
                             return res.status(404).json({ error: 'User not found' });
                         }
-                        const updatedResponseWithSettings = convertToUserResponse(userForSettings, updatedSettings.value as ServerUserSettings, token);
+                        const updatedResponseWithSettings = convertToUserResponse(userForSettings, updatedSettings.value, token);
                         return res.status(200).json(updatedResponseWithSettings);
 
                     case 'setFCMToken':
@@ -161,7 +225,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                             { _id: new ObjectId(userId) },
                             { $set: { fcmToken } }
                         );
-                        if (fcmResult.matchedCount === 0) {
+                        if (!fcmResult.acknowledged || fcmResult.modifiedCount === 0) {
                             return res.status(404).json({ error: 'User not found' });
                         }
                         return res.status(200).json({ message: 'FCM token updated successfully' });
@@ -175,7 +239,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                             { _id: new ObjectId(userId) },
                             { $addToSet: { connectedDevices: new ObjectId(addDeviceId) } }
                         );
-                        if (addResult.matchedCount === 0) {
+                        if (!addResult.acknowledged || addResult.modifiedCount === 0) {
                             return res.status(404).json({ error: 'User not found' });
                         }
                         return res.status(200).json({ message: 'Connected device added successfully' });
@@ -187,16 +251,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                         }
                         const pullQuery = { 
                             $pull: { 
-                                connectedDevices: { 
-                                    $elemMatch: { $eq: new ObjectId(removeDeviceId) }
-                                }
+                                connectedDevices: new ObjectId(removeDeviceId)
                             }
                         } as any;
                         const removeResult = await usersCollection.updateOne(
                             { _id: new ObjectId(userId) },
                             pullQuery
                         );
-                        if (removeResult.matchedCount === 0) {
+                        if (!removeResult.acknowledged || removeResult.modifiedCount === 0) {
                             return res.status(404).json({ error: 'User not found' });
                         }
                         return res.status(200).json({ message: 'Connected device removed successfully' });
@@ -228,7 +290,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                             }
                         );
 
-                        if (deleteResult.modifiedCount === 0) {
+                        if (!deleteResult.acknowledged || deleteResult.modifiedCount === 0) {
                             return res.status(500).json({ error: 'Failed to delete account' });
                         }
 
