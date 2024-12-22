@@ -1,26 +1,9 @@
-import { Box, CircularProgress, Typography } from '@mui/material';
-import { styled } from '@mui/material/styles';
+import { CircularProgress, Typography } from '@mui/material';
 import { useRouter } from 'next/router';
 import React, { useEffect } from 'react';
-
 import { useAuth } from '@/contexts/AuthContext';
 
-const LoadingContainer = styled(Box)({
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  height: '100vh'
-});
-
-const RedirectContainer = styled(Box)({
-  display: 'flex', 
-  alignItems: 'center', 
-  justifyContent: 'center', 
-  height: '100vh'
-});
-
-const Home: React.FC = (): JSX.Element => {
+const Home: React.FC = () => {
   const { user, loading } = useAuth();
   const router = useRouter();
 
@@ -36,17 +19,21 @@ const Home: React.FC = (): JSX.Element => {
 
   if (loading) {
     return (
-      <LoadingContainer>
+      <div className="loading-container">
         <CircularProgress size={60} />
-        <Typography variant="h6" sx={{ mt: 2 }}>Loading...</Typography>
-      </LoadingContainer>
+        <Typography variant="h6" className="p-2">
+          Loading...
+        </Typography>
+      </div>
     );
   }
 
   return (
-    <RedirectContainer>
-      <Typography variant="h5">Redirecting...</Typography>
-    </RedirectContainer>
+    <div className="flex-center full-height">
+      <Typography variant="h5">
+        Redirecting...
+      </Typography>
+    </div>
   );
 };
 

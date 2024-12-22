@@ -11,15 +11,23 @@ import type { HealthEnvironmentData, HealthMetric } from '@/types';
 // Dynamically import the EnhancedGlobeVisualization component
 const EnhancedGlobeVisualization = dynamic(
   () => import('./EnhancedGlobeVisualization'),
-  { ssr: false }
+  { 
+    ssr: false,
+    loading: () => (
+      <div className="globe-loading-container">
+        <CircularProgress size={40} />
+        <Typography variant="body1" className="loading-text">
+          Loading Globe...
+        </Typography>
+      </div>
+    )
+  }
 );
 
-const GlobeErrorBoundary = dynamic(
-  () => import('./GlobeErrorBoundary'),
+const FallbackComponent = dynamic(
+  () => import('./FallbackComponent'),
   { ssr: false }
 );
-
-const HOVER_DEBOUNCE_TIME = 200; // ms
 
 interface AnimatedGlobeProps {
   onLocationHover: (location: { name: string; country: string; state: string; continent: string; } | null) => void;
@@ -52,10 +60,10 @@ export const AnimatedGlobe: React.FC<AnimatedGlobeProps> = ({ onLocationHover, d
     try {
       const regionInfo = await getRegionInfo(location.latitude, location.longitude);
       onLocationHover({
-        name: regionInfo.city || 'Unknown',
-        country: regionInfo.country || 'Unknown',
-        state: regionInfo.state || 'Unknown',
-        continent: regionInfo.continent || 'Unknown'
+        name: regionInfo.city,
+        country: regionInfo.country,
+        state: regionInfo.state,
+        continent: regionInfo.continent
       });
     } catch (error) {
       console.error('Error getting region info:', error);
@@ -63,56 +71,40 @@ export const AnimatedGlobe: React.FC<AnimatedGlobeProps> = ({ onLocationHover, d
     }
   }, [onLocationHover]);
 
-  const debouncedHandleLocationHover = useMemo(
-    () => debounce(handleLocationHover, HOVER_DEBOUNCE_TIME),
-    [handleLocationHover]
-  );
-
   useEffect(() => {
-    return () => {
-      debouncedHandleLocationHover.cancel();
-    };
-  }, [debouncedHandleLocationHover]);
+    // Simulate loading time for smoother transitions
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   if (error) {
-    return (
-      <Typography color="error" variant="h6">
-        Error loading globe visualization: {error.message}
-      </Typography>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-        <CircularProgress />
-      </div>
-    );
+    return <FallbackComponent error={error} resetErrorBoundary={() => setError(null)} />;
   }
 
   return (
-    <div className="globe-container">
-      <div className="globe-visualization">
-        <GlobeErrorBoundary>
-          <EnhancedGlobeVisualization 
-            onLocationHover={debouncedHandleLocationHover}
-            isInteracting={isInteracting}
-            onZoomChange={handleZoomChange}
-            onCameraChange={handleCameraChange}
-            displayMetric={displayMetric}
-          />
-        </GlobeErrorBoundary>
-      </div>
+    <div className="globe-visualization">
+      <EnhancedGlobeVisualization
+        onLocationHover={handleLocationHover}
+        isInteracting={isInteracting}
+        onZoomChange={handleZoomChange}
+        onCameraChange={handleCameraChange}
+        displayMetric={displayMetric}
+      />
       <AnimatePresence>
-        {isInteracting && (
+        {isLoading && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="interaction-overlay"
+            className="globe-loading-container"
           >
-            <p>Zoom: {zoom.toFixed(2)}</p>
-            <p>Center: {center.latitude.toFixed(2)}, {center.longitude.toFixed(2)}</p>
+            <CircularProgress size={40} />
+            <Typography variant="body1" className="loading-text">
+              Loading Globe...
+            </Typography>
           </motion.div>
         )}
       </AnimatePresence>

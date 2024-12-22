@@ -1,106 +1,58 @@
 import React from 'react';
 import { useRouter } from 'next/router';
-import { AppBar, Box, Button, Container, IconButton, Toolbar, Typography, List, ListItem, ListItemIcon, ListItemText, Link } from '@mui/material';
-import { Menu as MenuIcon } from '@mui/icons-material';
-import { signOut, useSession } from 'next-auth/react';
-import Dashboard from '@mui/icons-material/Dashboard';
-import Public from '@mui/icons-material/Public';
-import HealthAndSafety from '@mui/icons-material/HealthAndSafety';
+import { List, ListItemIcon, ListItemText, Typography, ListItemButton } from '@mui/material';
+import { Dashboard, Public, Person, Settings } from '@mui/icons-material';
+import type { NextRouter } from 'next/router';
+import { routes } from '@/routes';
 
-type NavItem = {
-  label: string;
-  path: string;
-  requiresAuth: boolean;
-};
+const navItems = [
+  { label: 'Dashboard', route: 'dashboard', icon: <Dashboard /> },
+  { label: 'Profile', route: 'profile', icon: <Person /> },
+  { label: 'Settings', route: 'settings', icon: <Settings /> },
+  { label: 'Globe', route: 'globescreen', icon: <Public /> }
+] as const;
 
-const NAV_ITEMS: NavItem[] = [
-  { label: 'Home', path: '/', requiresAuth: false },
-  { label: 'Dashboard', path: '/dashboard', requiresAuth: true },
-  { label: 'Profile', path: '/profile', requiresAuth: true },
-  { label: 'Settings', path: '/settings', requiresAuth: true },
-  { label: 'Health Integrations', path: '/settings/health-integrations', requiresAuth: true },
-];
+interface NavigationProps {
+  onClose: () => void;
+  router: NextRouter;
+  drawerWidth: number;
+}
 
-const NavButton: React.FC<{
-  label: string;
-  path: string;
-  onClick: (path: string) => void;
-}> = ({ label, path, onClick }) => (
-  <Button
-    color="inherit"
-    onClick={() => onClick(path)}
-    sx={{ mx: 1 }}
-  >
-    {label}
-  </Button>
-);
-
-export default function Navigation() {
-  const router = useRouter();
-  const { data: session, status } = useSession();
-  const [mobileOpen, setMobileOpen] = React.useState(false);
-
-  const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
+const Navigation = ({ onClose, router }: NavigationProps) => {
+  const handleNavClick = (route: string) => {
+    if (window.innerWidth < 600) {
+      onClose();
+    }
+    router.push(route);
   };
-
-  const handleSignOut = async () => {
-    await signOut({ redirect: false });
-    router.push('/');
-  };
-
-  const isAuthenticated = status === 'authenticated' && session;
-
-  const handleNavigation = React.useCallback((path: string) => {
-    router.push(path);
-  }, [router]);
 
   return (
-    <AppBar position="static" color="primary">
-      <Container maxWidth="xl">
-        <Toolbar disableGutters>
-          <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
-            onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { sm: 'none' } }}
-          >
-            <MenuIcon />
-          </IconButton>
-          
-          <Typography
-            variant="h6"
-            noWrap
-            component="div"
-            sx={{ flexGrow: 1, display: { xs: 'none', sm: 'flex' } }}
-          >
-            1Biome
-          </Typography>
+    <div className="drawer">
+      <div className="drawer-header">
+        <Typography variant="h6">
+          1Biome
+        </Typography>
+      </div>
 
-          <Box display="flex" alignItems="center" component="div">
-            {NAV_ITEMS
-              .filter(item => !item.requiresAuth || isAuthenticated)
-              .map(item => (
-                <NavButton
-                  key={item.path}
-                  label={item.label}
-                  path={item.path}
-                  onClick={handleNavigation}
-                />
-              ))}
-            {isAuthenticated ? (
-              <Button color="inherit" onClick={handleSignOut}>
-                Sign Out
-              </Button>
-            ) : (
-              <Button color="inherit" onClick={() => handleNavigation('/login')}>
-                Login
-              </Button>
-            )}
-          </Box>
-        </Toolbar>
-      </Container>
-    </AppBar>
+      <List className="drawer-list">
+        {navItems.map(({ label, route, icon }) => (
+          <ListItemButton
+            key={route}
+            className={`drawer-item ${router.pathname === routes[route] ? 'drawer-item-active' : ''}`}
+            onClick={() => handleNavClick(routes[route])}
+          >
+            <ListItemIcon>
+              {icon}
+            </ListItemIcon>
+            <ListItemText 
+              primary={label}
+              className="drawer-item-text"
+            />
+          </ListItemButton>
+        ))}
+      </List>
+    </div>
   );
-}
+};
+
+export default Navigation;

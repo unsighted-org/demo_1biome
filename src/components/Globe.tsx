@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import * as THREE from 'three';
-import { Canvas, useThree, useFrame } from '@react-three/fiber';
+import { ThreeEvent, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { throttle } from 'lodash';
 
@@ -17,7 +17,6 @@ import {
 } from '@/lib/globe-helpers';
 
 import type { HealthEnvironmentData, HealthMetric } from '@/types';
-import type { RootState } from '@react-three/fiber';
 
 interface GlobeProps {
   onPointSelect: (point: HealthEnvironmentData | null) => void;
@@ -30,168 +29,173 @@ interface GlobeProps {
   dynamicTexture?: THREE.Texture;
 }
 
-const Globe: React.FC<GlobeProps> = ({ 
-  onPointSelect, 
+const Globe: React.FC<GlobeProps> = ({
+  onPointSelect,
   onLocationHover,
   isInteracting,
   onZoomChange,
   onCameraChange,
   displayMetric,
-  useDynamicTexture,
-  dynamicTexture 
+  useDynamicTexture = false,
+  dynamicTexture
 }) => {
-  const { scene, gl } = useThree();
   const globeRef = useRef<THREE.Mesh>(null);
   const cloudsRef = useRef<THREE.Mesh>(null);
   const atmosphereRef = useRef<THREE.Mesh>(null);
   const glowRef = useRef<THREE.Mesh>(null);
   const starFieldRef = useRef<THREE.Points | null>(null);
   const lastCameraPosition = useRef<THREE.Vector3>(new THREE.Vector3());
+  
+  const { camera, gl } = useThree();
   const { healthData } = useHealth();
+
   const [materials, setMaterials] = useState<{
-    earth: THREE.Material;
-    clouds: THREE.Material;
-    atmosphere: THREE.Material;
-    geospatial: THREE.Material;
-    glow: THREE.Material;
-  } | null>(null);
-  const dataPointManagerRef = useRef<DataPointManager | null>(null);
+    earth?: THREE.Material;
+    clouds?: THREE.Material;
+    atmosphere?: THREE.Material;
+    glow?: THREE.Material;
+  }>({});
 
-  // Initialize renderer and performance monitoring
   useEffect(() => {
-    if (gl) {
-      optimizationManager.setRenderer(gl);
-    }
-  }, [gl]);
+    const setupMaterials = async () => {
+      const cloudTexture = new THREE.TextureLoader().load('/clouds.png');
+      const earthMaterial = await createImprovedEarthMaterial(useDynamicTexture && dynamicTexture ? dynamicTexture : cloudTexture, cloudTexture);
+      const cloudsMaterial = await createAnimatedCloudMaterial(cloudTexture);
+      const atmosphereMaterial = createAtmosphereMaterial(cloudTexture);
+      const glowMaterial = createAdvancedGlowMaterial();
 
-  // Initialize DataPointManager
-  useEffect(() => {
-    if (scene) {
-      dataPointManagerRef.current = DataPointManager.getInstance({
-        maxPoints: 10000,
-        chunkSize: 100,
-        updateInterval: 50
-      });
-      dataPointManagerRef.current.initialize(scene);
-
-      return () => {
-        if (dataPointManagerRef.current) {
-          dataPointManagerRef.current.dispose();
-        }
-      };
-    }
-  }, [scene]);
-
-  // Update points when health data changes
-  useEffect(() => {
-    if (dataPointManagerRef.current && healthData) {
-      const startTime = performance.now();
-      dataPointManagerRef.current.updatePoints(
-        healthData,
-        displayMetric,
-        new THREE.Box2(new THREE.Vector2(-180, -90), new THREE.Vector2(180, 90))
-      ).then(() => {
-        const duration = performance.now() - startTime;
-        optimizationManager.recordPointUpdateTime(duration);
-      });
-    }
-  }, [healthData, displayMetric]);
-
-  // Load textures and create materials
-  useEffect(() => {
-    const loader = new THREE.TextureLoader();
-    const loadTexture = (url: string): Promise<THREE.Texture> => {
-      return new Promise((resolve, reject) => {
-        const startTime = performance.now();
-        loader.load(
-          url,
-          (texture) => {
-            const duration = performance.now() - startTime;
-            optimizationManager.recordTextureLoadTime(duration);
-            resolve(texture);
-          },
-          undefined,
-          reject
-        );
+      setMaterials({
+        earth: earthMaterial,
+        clouds: cloudsMaterial,
+        atmosphere: atmosphereMaterial,
+        glow: glowMaterial
       });
     };
 
-    Promise.all([
-      loadTexture('/textures/earth.jpg'),
-      loadTexture('/textures/clouds.jpg'),
-      loadTexture('/textures/night.jpg'),
-      loadTexture('/textures/topology.jpg')
-    ]).then(([earthTex, cloudsTex, nightTex, topologyTex]) => {
-      setMaterials({
-        earth: useDynamicTexture && dynamicTexture
-          ? new THREE.MeshBasicMaterial({ map: dynamicTexture })
-          : createImprovedEarthMaterial(earthTex, nightTex),
-        clouds: createAnimatedCloudMaterial(cloudsTex),
-        atmosphere: createAtmosphereMaterial(topologyTex),
-        geospatial: createGeospatialMaterial(healthData, displayMetric),
-        glow: createAdvancedGlowMaterial()
-      });
+    setupMaterials();
+  }, [useDynamicTexture, dynamicTexture]);
+
+  const dataPointManager = useMemo(() => {
+    return DataPointManager.getInstance({ 
+      maxPoints: 1000,
+      chunkSize: 100,
+      updateInterval: 50
     });
-  }, [useDynamicTexture, dynamicTexture, healthData, displayMetric]);
+  }, []);
 
-  // Animation frame handler
-  useFrame((state: RootState) => {
-    const delta = state.clock.getDelta();
+  useEffect(() => {
+    const visibleArea = new THREE.Box2(
+      new THREE.Vector2(-1, -1),
+      new THREE.Vector2(1, 1)
+    );
+    dataPointManager.updatePoints(healthData, displayMetric, visibleArea);
+  }, [healthData, displayMetric, dataPointManager]);
 
+  useFrame((state, delta) => {
     if (cloudsRef.current) {
       cloudsRef.current.rotation.y += delta * 0.05;
     }
-    
+
     if (starFieldRef.current) {
       animateStarField(starFieldRef.current, delta);
     }
-    
-    // Update camera position if changed
-    if (state.camera instanceof THREE.PerspectiveCamera) {
-      const camera = state.camera;
-      if (!lastCameraPosition.current.equals(camera.position)) {
-        lastCameraPosition.current.copy(camera.position);
-        const { lat, lon } = calculateLatLonFromCamera(camera);
-        onCameraChange({ latitude: lat, longitude: lon }, camera.zoom);
-      }
+
+    if (camera.position.distanceTo(lastCameraPosition.current) > 0.1) {
+      const { lat, lon } = calculateLatLonFromCamera(camera as THREE.PerspectiveCamera);
+      onCameraChange({ latitude: lat, longitude: lon }, camera.position.length());
+      lastCameraPosition.current.copy(camera.position);
     }
   });
 
+  const handleGlobeClick = useCallback((event: ThreeEvent<MouseEvent>) => {
+      event.stopPropagation();
+      const intersection = event.intersections[0];
+      if (intersection) {
+        const { lat, lon } = calculateLatLonFromPosition(intersection.point);
+        const point = dataPointManager.getPointData(lat, lon);
+        onPointSelect(point || null);
+      } else {
+        onPointSelect(null);
+      }
+    }, [dataPointManager, onPointSelect]);
+
+  const handleGlobeHover = throttle((event: THREE.Intersection | null) => {
+    if (!event) {
+      onLocationHover(null);
+      return;
+    }
+
+    const { lat, lon } = calculateLatLonFromPosition(event.point);
+    onLocationHover({ latitude: lat, longitude: lon });
+  }, 100);
+
   return (
     <group>
-      {materials && (
-        <>
-          <mesh ref={globeRef} scale={[1, 1, 1]}>
-            <sphereGeometry args={[1, 64, 64]} />
-            <primitive object={materials.earth} attach="material" />
-          </mesh>
-          <mesh ref={cloudsRef}>
-            <sphereGeometry args={[1.02, 64, 64]} />
-            <primitive object={materials.clouds} attach="material" />
-          </mesh>
-          <mesh ref={atmosphereRef}>
-            <sphereGeometry args={[1.1, 64, 64]} />
-            <primitive object={materials.atmosphere} attach="material" />
-          </mesh>
-          <mesh ref={glowRef}>
-            <sphereGeometry args={[1.15, 64, 64]} />
-            <primitive object={materials.glow} attach="material" />
-          </mesh>
-          {starFieldRef.current && <primitive object={starFieldRef.current} />}
-        </>
+      {/* Earth */}
+      <mesh
+      ref={globeRef}
+      onPointerMove={(e: ThreeEvent<PointerEvent>) => handleGlobeHover(e.intersections[0] || null)}
+      onPointerOut={() => handleGlobeHover(null)}
+      onClick={(e: ThreeEvent<MouseEvent>) => handleGlobeClick(e)}
+      >
+      <sphereGeometry args={[1, 64, 64]} />
+      {materials.earth && <primitive object={materials.earth} attach="material" />}
+      </mesh>
+
+      {/* Clouds */}
+      <mesh ref={cloudsRef} scale={1.003}>
+      <sphereGeometry args={[1, 32, 32]} />
+      {materials.clouds && <primitive object={materials.clouds} attach="material" />}
+      </mesh>
+
+      {/* Atmosphere */}
+      <mesh ref={atmosphereRef} scale={1.05}>
+      <sphereGeometry args={[1, 32, 32]} />
+      {materials.atmosphere && <primitive object={materials.atmosphere} attach="material" />}
+      </mesh>
+
+      {/* Glow */}
+      <mesh ref={glowRef} scale={1.1}>
+      <sphereGeometry args={[1, 32, 32]} />
+      {materials.glow && <primitive object={materials.glow} attach="material" />}
+      </mesh>
+
+      {/* Data Points */}
+      {dataPointManager.getInstancedMesh() && (
+        <primitive 
+          object={dataPointManager.getInstancedMesh()!} 
+          onClick={(event: ThreeEvent<MouseEvent>) => {
+            const instanceId = event.instanceId;
+            if (instanceId !== undefined) {
+              const mesh = dataPointManager.getInstancedMesh();
+              const point = dataPointManager.getPointData(
+                mesh!.geometry.attributes.position.getY(instanceId),
+                mesh!.geometry.attributes.position.getZ(instanceId)
+              );
+              if (point) {
+                onPointSelect(point);
+              }
+            }
+          }}
+        />
       )}
     </group>
   );
 };
 
+function calculateLatLonFromPosition(position: THREE.Vector3): { lat: number; lon: number } {
+  const lat = Math.asin(position.y);
+  const lon = Math.atan2(position.x, position.z);
+  return {
+    lat: (lat * 180) / Math.PI,
+    lon: (lon * 180) / Math.PI
+  };
+}
+
 function calculateLatLonFromCamera(camera: THREE.PerspectiveCamera): { lat: number; lon: number } {
-  const vector = new THREE.Vector3();
-  vector.setFromMatrixPosition(camera.matrixWorld);
-  const spherical = new THREE.Spherical();
-  spherical.setFromVector3(vector);
-  const lat = 90 - (spherical.phi * 180) / Math.PI;
-  const lon = ((270 + (spherical.theta * 180) / Math.PI) % 360) - 180;
-  return { lat, lon };
+  const direction = new THREE.Vector3();
+  camera.getWorldDirection(direction);
+  return calculateLatLonFromPosition(direction);
 }
 
 export default Globe;

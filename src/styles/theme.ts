@@ -1,29 +1,48 @@
 // theme.ts
-import { createTheme, responsiveFontSizes, Components, Theme } from '@mui/material/styles';
-import { BoxProps } from '@mui/material/Box';
+import { createTheme, responsiveFontSizes } from '@mui/material/styles';
+import type { Theme, Components } from '@mui/material/styles';
+import type { BoxProps } from '@mui/material/Box';
 
 declare module '@mui/material/styles' {
   interface ComponentNameToClassKey {
     MuiBox: keyof BoxProps;
   }
 
-  interface Components<Theme = unknown> {
+  interface Components {
     MuiBox?: {
-      defaultProps?: BoxProps;
+      defaultProps?: Partial<BoxProps>;
       styleOverrides?: {
         root?: React.CSSProperties;
       };
       variants?: Array<{
-        props: { className: string };
+        props: { className?: string };
         style: React.CSSProperties;
       }>;
     };
+  }
+
+  interface TypeBackground {
+    default: string;
+    paper: string;
+  }
+
+  interface TypeText {
+    primary: string;
+    secondary: string;
+    disabled: string;
+  }
+
+  interface PaletteColor {
+    main: string;
+    light: string;
+    dark: string;
+    contrastText: string;
   }
 }
 
 const baseTheme = createTheme({
   palette: {
-    mode: 'dark', // Enforce dark mode
+    mode: 'dark',
     primary: {
       main: '#1976d2',
       light: '#42a5f5',
@@ -37,8 +56,13 @@ const baseTheme = createTheme({
       contrastText: '#ffffff',
     },
     background: {
-      default: '#121212', // Dark background
-      paper: '#1d1d1d',   // Darker background for paper elements
+      default: '#121212',
+      paper: '#1d1d1d',
+    },
+    text: {
+      primary: '#ffffff',
+      secondary: 'rgba(255, 255, 255, 0.7)',
+      disabled: 'rgba(255, 255, 255, 0.5)',
     },
   },
   typography: {
@@ -86,8 +110,13 @@ const baseTheme = createTheme({
       },
     },
     MuiBox: {
+      defaultProps: {
+        component: 'div',
+      },
       styleOverrides: {
-        root: {},
+        root: {
+          boxSizing: 'border-box',
+        },
       },
       variants: [
         {
@@ -129,4 +158,5 @@ const baseTheme = createTheme({
 
 const theme = responsiveFontSizes(baseTheme);
 
+export type AppTheme = typeof theme;
 export default theme;

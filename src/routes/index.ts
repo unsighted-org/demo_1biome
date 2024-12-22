@@ -3,6 +3,7 @@ import type { AppRoutes } from '@/types';
 export const routes: AppRoutes = {
   home: '/',
   main: '/main',
+  dashboard: '/dashboard',
   stats: '/stats',
   profile: '/profile',
   settings: '/settings',

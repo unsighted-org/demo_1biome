@@ -10,6 +10,10 @@ class MyDocument extends Document {
             rel="stylesheet"
             href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap"
           />
+          <link
+            rel="stylesheet"
+            href="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css"
+          />
         </Head>
         <body>
           <Main />

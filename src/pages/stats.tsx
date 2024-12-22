@@ -12,7 +12,7 @@ import { LoadingTimeoutError } from '@/components/LoadingTimeoutError';
 const StatsPage: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const healthData = useAppSelector((state) => state.health.data);
+  const healthData = useAppSelector((state: { health: { data: HealthEnvironmentData[] } }) => state.health.data);
   const { fetchHealthData, loading, error } = useHealth();
   
   const hasTimedOut = useLoadingTimeout({ 

@@ -180,4 +180,9 @@ export class DataPointManager {
       this.updateQueued = true;
     }
   }
+
+  // Public getter for instancedMesh
+  public getInstancedMesh(): THREE.InstancedMesh | null {
+    return this.instancedMesh;
+  }
 }

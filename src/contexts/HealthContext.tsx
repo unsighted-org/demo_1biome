@@ -2,8 +2,8 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { sub } from 'date-fns';
 import { useAuth } from './AuthContext';
 import { healthIntegrationService } from '@/services/healthIntegrations';
-import type { HealthEnvironmentData, HealthMetric } from '@/types';
 import type { HealthKitData } from '@/services/healthIntegrations';
+import { HealthEnvironmentData, HealthMetric } from '@/types';
 
 const HealthContext = createContext<HealthContextType | undefined>(undefined);
 
