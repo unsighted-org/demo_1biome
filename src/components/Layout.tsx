@@ -41,10 +41,9 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         </Typography>
         <List>
           {navItems.map((item) => (
-            <Link href={routes[item.route]} passHref>
+            <Link href={routes[item.route]} passHref key={item.route}>
               <ListItem
                 component="button"
-                key={item.route}
                 className="drawer-item"
               >
                 <ListItemIcon>{item.icon}</ListItemIcon>

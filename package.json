@@ -7,7 +7,8 @@
     "dev": "node -r ./event-config.js ./node_modules/.bin/next dev",
     "build": "node -r ./event-config.js ./node_modules/.bin/next build",
     "start": "node -r ./event-config.js ./node_modules/.bin/next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "generate-icons": "node scripts/generate-icons.js"
   },
   "dependencies": {
     "@azure/cosmos": "^4.0.0",
@@ -91,6 +92,8 @@
     "msw": "^0.35.0",
     "node-mocks-http": "^1.10.0",
     "postcss": "^8",
+    "sharp": "^0.33.5",
+    "svgexport": "^0.4.2",
     "tailwindcss": "^3.4.1",
     "ts-jest": "^29.2.2",
     "typescript": "5.7.2"

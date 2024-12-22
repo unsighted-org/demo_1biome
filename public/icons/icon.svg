@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Gradient definitions -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1E88E5;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1565C0;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="earthGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#43A047;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2E7D32;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background with rounded corners -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGradient)"/>
+
+  <!-- Abstract Earth representation -->
+  <circle cx="256" cy="256" r="160" 
+          stroke="url(#earthGradient)" 
+          stroke-width="24" 
+          fill="none" 
+          opacity="0.9"/>
+
+  <!-- Meridian lines -->
+  <path d="M256 96v320M96 256h320" 
+        stroke="white" 
+        stroke-width="8" 
+        stroke-opacity="0.3"/>
+
+  <!-- Modern "1" design -->
+  <path d="M256 176
+           L296 176
+           L256 196
+           L256 336
+           L316 336
+           L316 366
+           L196 366
+           L196 336
+           L226 336
+           L226 216
+           L196 226
+           L196 196
+           L256 176Z" 
+        fill="white"/>
+
+  <!-- Decorative elements -->
+  <circle cx="256" cy="256" r="8" fill="white"/>
+  <circle cx="196" cy="256" r="6" fill="white" opacity="0.7"/>
+  <circle cx="316" cy="256" r="6" fill="white" opacity="0.7"/>
+  <circle cx="256" cy="196" r="6" fill="white" opacity="0.7"/>
+  <circle cx="256" cy="316" r="6" fill="white" opacity="0.7"/>
+
+  <!-- Biome elements -->
+  <path d="M256 116
+           A140 140 0 0 1 396 256
+           A140 140 0 0 1 256 396
+           A140 140 0 0 1 116 256
+           A140 140 0 0 1 256 116Z" 
+        stroke="#81C784" 
+        stroke-width="2" 
+        stroke-dasharray="4 4" 
+        fill="none"/>
+</svg>
