@@ -39,7 +39,7 @@ const Footer = () => {
 
       <BottomNavigation
         value={value}
-        onChange={(event, newValue) => {
+        onChange={(event: any, newValue: number) => {
           setValue(newValue);
           handleNavClick(navItems[newValue].route);
         }}
