@@ -256,15 +256,48 @@ a {
 .metric-buttons {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  overflow-x: auto;
+  gap: 0.25rem;
   margin-bottom: 1rem;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.metric-buttons::-webkit-scrollbar {
+  display: none;
+}
+
+.metric-button {
+  font-size: clamp(0.75rem, 2vw, 0.875rem);
+  min-width: auto;
+  padding: 0.5rem 1rem;
+  flex: 0 0 auto;
+}
+
+.date-range-popover {
+  padding: 1rem;
+}
+
+@media (max-width: 600px) {
+  .metric-buttons {
+    flex-wrap: nowrap;
+  }
+  
+  .metric-button {
+    padding: 0.25rem 0.5rem;
+  }
 }
 
 .chart-controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 0.5rem;
   margin-bottom: 1rem;
+}
+
+.chart-controls .MuiFormControl-root {
+  min-width: 120px;
+  flex-grow: 1;
 }
 
 .chart-container {

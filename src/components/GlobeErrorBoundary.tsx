@@ -1,4 +1,4 @@
-import { Box, Typography, Button } from '@mui/material';
+import { Typography, Button } from '@mui/material';
 import React from 'react';
 
 import type { ErrorInfo, ReactNode } from 'react';
@@ -33,33 +33,25 @@ class GlobeErrorBoundary extends React.Component<Props, State> {
   render(): React.ReactNode {
     if (this.state.hasError) {
       return (
-        <Box sx={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          alignItems: 'center', 
-          justifyContent: 'center', 
-          height: '100%', 
-          textAlign: 'center', 
-          p: 3 
-        }}>
-          <Typography variant="h5" gutterBottom>
+        <div className="error-container p-4">
+          <Typography variant="h5" className="m-3">
             Oops! Something went wrong with the globe visualization.
           </Typography>
-          <Typography variant="body1" paragraph>
+          <Typography variant="body1" className="m-3">
             Error: {this.state.error?.message || 'Unknown error'}
           </Typography>
-          <Typography variant="body2" paragraph>
+          <Typography variant="body2" className="m-3">
             Please try refreshing the page. If the problem persists, check your browser&rsquo;s WebGL support or contact support.
           </Typography>
           <Button 
             variant="contained" 
             color="primary" 
             onClick={this.handleRefresh}
-            sx={{ mt: 2 }}
+            className="m-3"
           >
             Refresh Page
           </Button>
-        </Box>
+        </div>
       );
     }
 

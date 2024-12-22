@@ -1,6 +1,6 @@
 import {
   Button, FormControl, InputLabel, Select, MenuItem, Card, CardContent,
-  CardHeader, Typography, useMediaQuery, useTheme, Popover, TextField, Box, CircularProgress
+  CardHeader, Typography, useMediaQuery, useTheme, Popover, TextField, CircularProgress
 } from '@mui/material';
 import { format } from 'date-fns';
 import React, { useState, useMemo, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react';
@@ -335,8 +335,8 @@ const CustomYAxisTick = useCallback(({ x, y, payload }: any) => {
       } 
     />
     <CardContent className="health-trend-content">
-      <Box className="chart-controls" mb={2} sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-        <FormControl variant="outlined" size="small" sx={{ minWidth: 120, flexGrow: 1 }}>
+      <div className="chart-controls">
+        <FormControl variant="outlined" size="small">
           <InputLabel id="chart-type-label">Chart Type</InputLabel>
           <Select
             labelId="chart-type-label"
@@ -359,92 +359,79 @@ const CustomYAxisTick = useCallback(({ x, y, payload }: any) => {
         >
           Date Range
         </Button>
-      </Box>
-      <Box 
-        className="metric-buttons" 
-        mb={2} 
-        sx={{ 
-          display: 'flex', 
-          flexWrap: { xs: 'nowrap', sm: 'wrap' },
-          overflowX: { xs: 'auto', sm: 'visible' },
-          gap: 1,
-          '&::-webkit-scrollbar': {
-            display: 'none'
-          },
-          scrollbarWidth: 'none',
-        }}
-      >
+      </div>
+      <div className="metric-buttons">
         {metricOptions.map(({ value, label, icon }) => (
           <Button
             key={value}
             aria-label={`Toggle ${label} metric`}
             variant={selectedMetrics.includes(value) ? 'contained' : 'outlined'}
+            color={selectedMetrics.includes(value) ? 'primary' : 'inherit'}
             size="small"
             onClick={() => toggleMetric(value)}
             startIcon={icon}
-            sx={{
+            className="metric-button"
+            style={{
               fontSize: buttonFontSize,
-              minWidth: { xs: 'auto', sm: 'unset' },
-              px: { xs: 1, sm: 2 },
-              flex: { xs: '0 0 auto', sm: '0 1 auto' },
+              minWidth: 'auto',
+              padding: '0 8px',
+              flex: '0 0 auto',
             }}
           >
             {isMobile ? '' : label}
           </Button>
         ))}
-      </Box>
-        <Typography variant="caption" style={{ fontSize: 'clamp(0.75rem, 2vw, 0.875rem)' }} mb={1}>
-          {filteredData.length} data points
-        </Typography>
-        <Typography variant="caption" style={{ fontSize: 'clamp(0.75rem, 2vw, 0.875rem)' }} mb={2}>
-          {selectedMetrics.length} metrics selected
-        </Typography>
-        <Box className="chart-container" style={{ width: '100%', height: 'calc(100% - 120px)', minHeight: '300px' }}>
-          <ResponsiveContainer width="100%" height="100%" key={chartKey}>
-            {renderChart !== null ? renderChart : <Typography>No chart data available</Typography>}
-          </ResponsiveContainer>
-        </Box>
-        <Button onClick={zoomOut} sx={{ mt: 2 }} style={{ fontSize: buttonFontSize }}>Zoom Out</Button>
-        <Popover
-          id="date-range-popover"
-          open={Boolean(anchorEl)}
-          anchorEl={anchorEl}
-          onClose={handleDateRangeClose}
-          anchorOrigin={{
-            vertical: 'bottom',
-            horizontal: 'right',
-          }}
-          transformOrigin={{
-            vertical: 'top',
-            horizontal: 'right',
-          }}
-        >
-          <Box p={2}>
-            <TextField
-              label="Start Date"
-              type="date"
-              value={startDateInput}
-              onChange={(e) => setStartDateInput(e.target.value)}
-              InputLabelProps={{
-                shrink: true,
-              }}
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              label="End Date"
-              type="date"
-              value={endDateInput}
-              onChange={(e) => setEndDateInput(e.target.value)}
-              InputLabelProps={{
-                shrink: true,
-              }}
-              sx={{ mb: 2 }}
-            />
-            <Button onClick={handleDateRangeSubmit} style={{ fontSize: buttonFontSize }}>Apply</Button>
-          </Box>
-        </Popover>
-      </CardContent>
-    </Card>
+      </div>
+      <Typography variant="caption" className="m-2">
+        {filteredData.length} data points
+      </Typography>
+      <Typography variant="caption" className="m-2">
+        {selectedMetrics.length} metrics selected
+      </Typography>
+      <div className="chart-container">
+        <ResponsiveContainer width="100%" height="100%" key={chartKey}>
+          {renderChart !== null ? renderChart : <Typography>No chart data available</Typography>}
+        </ResponsiveContainer>
+      </div>
+      <Button onClick={zoomOut} className="m-3" style={{ fontSize: buttonFontSize }}>
+        Zoom Out
+      </Button>
+      <Popover
+        id="date-range-popover"
+        open={Boolean(anchorEl)}
+        anchorEl={anchorEl}
+        onClose={handleDateRangeClose}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'right',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
+      >
+        <div className="date-range-popover">
+          <TextField
+            label="Start Date"
+            type="date"
+            value={startDateInput}
+            onChange={(e) => setStartDateInput(e.target.value)}
+            className="m-2"
+          />
+          <TextField
+            label="End Date"
+            type="date"
+            value={endDateInput}
+            onChange={(e) => setEndDateInput(e.target.value)}
+            className="m-2"
+          />
+          <Button onClick={handleDateRangeSubmit} className="m-2" style={{ fontSize: buttonFontSize }}>
+            Apply
+          </Button>
+        </div>
+      </Popover>
+    </CardContent>
+  </Card>
   );
 });
 
