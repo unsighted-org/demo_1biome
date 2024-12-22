@@ -99,19 +99,34 @@ const GlobePage: NextPage = () => {
     if (!authLoading && !user) {
       router.push('/login');
     } else if (user) {
+      fetchHealthData(1).catch(console.error);
       notificationService.initializeNotifications(user, user.token).catch(console.error);
     }
-  }, [authLoading, user, router]);
+  }, [authLoading, user, router, fetchHealthData]);
+
+  if (!user && !authLoading) {
+    router.push('/login');
+    return null;
+  }
 
   if (hasTimedOut) {
-    return <LoadingTimeoutError message="Loading the health globe is taking longer than expected." />;
+    return (
+      <LoadingContainer>
+        <LoadingTimeoutError 
+          message="Loading the health globe is taking longer than expected." 
+          onRetry={() => fetchHealthData(1)}
+        />
+      </LoadingContainer>
+    );
   }
 
   if (authLoading || healthLoading) {
     return (
       <LoadingContainer>
         <CircularProgress size={60} />
-        <Typography variant="h6" sx={{ marginTop: '20px', color: 'white' }}>Loading your health data...</Typography>
+        <Typography variant="h6" sx={{ marginTop: '20px', color: 'white' }}>
+          {authLoading ? 'Verifying your session...' : 'Loading your health data...'}
+        </Typography>
       </LoadingContainer>
     );
   }
@@ -134,10 +149,6 @@ const GlobePage: NextPage = () => {
         </Button>
       </LoadingContainer>
     );
-  }
-
-  if (!user) {
-    return null; // The useEffect will handle redirecting to login
   }
 
   return (

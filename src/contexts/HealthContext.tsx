@@ -61,8 +61,14 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     minPoints: 2,
   }), []);
 
+  useEffect(() => {
+    if (user?.token) {
+      healthService.setToken(user.token);
+    }
+  }, [user]);
+
   const fetchHealthData = useCallback(async (page: number) => {
-    if (!user || loading) return;
+    if (!user) return;
 
     setLoading(true);
     try {
@@ -77,14 +83,15 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setTotalPages(response.totalPages);
       clusterManager.addData(response.data);
     } catch (err) {
+      console.error('Error fetching health data:', err);
       setHealthState(prevState => ({
         ...prevState,
-        error: 'Failed to fetch health data',
+        error: err instanceof Error ? err.message : 'Failed to fetch health data',
       }));
     } finally {
       setLoading(false);
     }
-  }, [user, loading, clusterManager]);
+  }, [user, clusterManager]);
 
   useEffect(() => {
     if (user && healthState.data.length === 0) {
