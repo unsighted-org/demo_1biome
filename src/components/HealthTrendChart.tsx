@@ -1,6 +1,6 @@
 import {
   Button, FormControl, InputLabel, Select, MenuItem, Card, CardContent,
-  CardHeader, Typography, useMediaQuery, useTheme, Popover, TextField, Box
+  CardHeader, Typography, useMediaQuery, useTheme, Popover, TextField, Box, CircularProgress
 } from '@mui/material';
 import { format } from 'date-fns';
 import React, { useState, useMemo, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react';
@@ -10,22 +10,22 @@ import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
 import { getColorForMetric, getMetricColor } from '@/lib/colorUtils';
 import { formatDate, getHealthScoreDescription } from '@/lib/helpers';
 import { useHealth } from '@/contexts/HealthContext';
+import { useLoadingTimeout } from '@/hooks/useLoadingTimeout';
+import { LoadingTimeoutError } from '@/components/LoadingTimeoutError';
 
 import type { HealthEnvironmentData, HealthMetric } from '@/types';
 import type { SelectChangeEvent } from '@mui/material';
-
 
 interface HealthTrendChartProps {
   onDataUpdate: (data: HealthEnvironmentData[], selectedMetrics: HealthMetric[]) => void;
 }
 
-// Define the ref type
 export interface HealthTrendChartRef {
   refreshData: () => Promise<void>;
 }
 
 const HealthTrendChart = forwardRef<HealthTrendChartRef, HealthTrendChartProps>(({ onDataUpdate }, ref) => {
-  const { healthData, fetchHealthData, loading, setZoom } = useHealth();
+  const { healthData, fetchHealthData, loading: healthLoading } = useHealth();
   const [selectedMetrics, setSelectedMetrics] = useState<HealthMetric[]>(['cardioHealthScore', 'respiratoryHealthScore']);
   const [chartType, setChartType] = useState<'line' | 'area' | 'correlation'>('line');
   const [startDate, setStartDate] = useState<Date | null>(null);
@@ -35,6 +35,7 @@ const HealthTrendChart = forwardRef<HealthTrendChartRef, HealthTrendChartProps>(
   const [refAreaRight, setRefAreaRight] = useState<string>('');
   const [startDateInput, setStartDateInput] = useState('');
   const [endDateInput, setEndDateInput] = useState('');
+  const [loading, setLoading] = useState(false);
   
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -133,11 +134,13 @@ const CustomYAxisTick = useCallback(({ x, y, payload }: any) => {
 
   useImperativeHandle(ref, () => ({
     refreshData: async () => {
-      if (!loading) {
+      if (!loading && !healthLoading) {
+        setLoading(true);
         await fetchHealthData(1);
+        setLoading(false);
       }
     }
-  }), [fetchHealthData, loading]);
+  }), [fetchHealthData, loading, healthLoading]);
 
   const handleDateRangeClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
     setAnchorEl(event.currentTarget);
@@ -179,8 +182,8 @@ const CustomYAxisTick = useCallback(({ x, y, payload }: any) => {
 
     // Update zoom level in HealthContext
     const zoomLevel = healthData.length / filteredData.length;
-    setZoom(zoomLevel);
-  }, [refAreaLeft, refAreaRight, healthData.length, filteredData.length, setZoom]);
+    // setZoom(zoomLevel);
+  }, [refAreaLeft, refAreaRight, healthData.length, filteredData.length]);
 
   const zoomOut = useCallback(() => {
     if (healthData.length > 0) {
@@ -189,8 +192,8 @@ const CustomYAxisTick = useCallback(({ x, y, payload }: any) => {
     }
     setRefAreaLeft('');
     setRefAreaRight('');
-    setZoom(1); // Reset zoom level in HealthContext
-  }, [healthData, setZoom]);
+    // setZoom(1); // Reset zoom level in HealthContext
+  }, [healthData]);
 
   const getLineColor = useCallback((metric: HealthMetric): string => {
     const latestData = filteredData[filteredData.length - 1];
@@ -296,6 +299,27 @@ const CustomYAxisTick = useCallback(({ x, y, payload }: any) => {
       return null;
   }
 }, [chartType, transformedData, selectedMetrics, refAreaLeft, refAreaRight, zoom, getLineColor, getResponsiveLabel, CustomYAxisTick]);
+
+  const hasTimedOut = useLoadingTimeout({ 
+    isLoading: loading || healthLoading,
+    timeoutMs: 12000 // 12 seconds for complex chart data
+  });
+
+  if (hasTimedOut) {
+    return (
+      <LoadingTimeoutError 
+        message="Chart data is taking longer than expected to load." 
+        onRetry={() => {
+          setLoading(false);
+          onDataUpdate([], []);
+        }}
+      />
+    );
+  }
+
+  if (loading || healthLoading) {
+    return <CircularProgress />;
+  }
 
   if (!healthData || healthData.length === 0) {
     return <Typography>No health data available</Typography>;

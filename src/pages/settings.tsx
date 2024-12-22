@@ -14,6 +14,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNotificationContext } from '@/contexts/NotificationContext';
 import withAuth from '@/components/withAuth';
 import { useAppSelector } from '@/store';
+import { useLoadingTimeout } from '@/hooks/useLoadingTimeout';
+import { LoadingTimeoutError } from '@/components/LoadingTimeoutError';
 
 import type { UserSettings, UserState } from '@/types';
 
@@ -27,6 +29,11 @@ const SettingsPage: React.FC = () => {
   const settings = useAppSelector((state: { user: UserState }) => state.user.settings);
   const [openLogoutDialog, setOpenLogoutDialog] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+
+  const hasTimedOut = useLoadingTimeout({ 
+    isLoading: isUpdating,
+    timeoutMs: 8000 // 8 seconds for settings updates
+  });
 
   const handleToggle = useCallback(async (key: keyof ToggleableSettings): Promise<void> => {
     if (!user || !settings || isUpdating) return;
@@ -199,6 +206,13 @@ const SettingsPage: React.FC = () => {
       </List>
     </>
   );
+
+  if (hasTimedOut) {
+    return <LoadingTimeoutError 
+      message="Settings update is taking longer than expected." 
+      onRetry={() => setIsUpdating(false)}
+    />;
+  }
 
   return (
     <Box sx={{ maxWidth: 600, mx: 'auto', p: 2 }}>

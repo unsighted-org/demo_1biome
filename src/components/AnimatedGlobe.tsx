@@ -2,9 +2,11 @@ import { Box, CircularProgress, FormControl, InputLabel, MenuItem, Select, Typog
 import { motion } from 'framer-motion';
 import { debounce } from 'lodash';
 import dynamic from 'next/dynamic';
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 
 import { useHealth } from '@/contexts/HealthContext';
+import { useLoadingTimeout } from '@/hooks/useLoadingTimeout';
+import { LoadingTimeoutError } from '@/components/LoadingTimeoutError';
 
 import GlobeErrorBoundary from './GlobeErrorBoundary';
 
@@ -24,14 +26,43 @@ interface AnimatedGlobeProps {
 }
 
 const AnimatedGlobe: React.FC<AnimatedGlobeProps> = ({ onLocationHover, onPointSelect }) => {
-  const { selectedMetrics, displayMetric, setDisplayMetric, loading, error } = useHealth();
+  const { selectedMetrics, displayMetric, setDisplayMetric, error } = useHealth();
   const [selectedPoint,] = useState<HealthEnvironmentData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const { healthData } = useHealth();
+
+  const hasTimedOut = useLoadingTimeout({ 
+    isLoading: loading,
+    timeoutMs: 20000 // 20 seconds for 3D globe initialization
+  });
+
+  useEffect(() => {
+    // Set loading to false when globe is ready
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 2000); // Assuming initial load takes about 2 seconds
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (hasTimedOut) {
+    return (
+      <LoadingTimeoutError 
+        message="3D Globe visualization is taking longer than expected to load." 
+        onRetry={() => setLoading(false)}
+      />
+    );
+  }
+
+  if (loading) {
+    return <CircularProgress />;
+  }
 
   const handleMetricChange = useCallback((event: SelectChangeEvent<HealthMetric>) => {
     setDisplayMetric(event.target.value as HealthMetric);
   }, [setDisplayMetric]);
 
-   const handlePointSelection = useCallback((point: HealthEnvironmentData | null): void => {
+  const handlePointSelection = useCallback((point: HealthEnvironmentData | null): void => {
     onPointSelect(point);
   }, [onPointSelect]);
 
@@ -39,7 +70,6 @@ const AnimatedGlobe: React.FC<AnimatedGlobeProps> = ({ onLocationHover, onPointS
     () => debounce(onLocationHover, HOVER_DEBOUNCE_TIME),
     [onLocationHover]
   );
-
 
   if (error) {
     return <Typography color="error">Error loading globe data: {error}</Typography>;
@@ -69,12 +99,10 @@ const AnimatedGlobe: React.FC<AnimatedGlobeProps> = ({ onLocationHover, onPointS
       </FormControl>
       <Box sx={{ height: 'calc(100% - 80px)', width: '100%', position: 'relative' }}>
         <GlobeErrorBoundary>
-          {loading ? <CircularProgress /> : (
-            <EnhancedGlobeVisualization 
-              onPointSelect={handlePointSelection} 
-              onLocationHover={debouncedHandleLocationHover}
-            />
-          )}
+          <EnhancedGlobeVisualization 
+            onPointSelect={handlePointSelection} 
+            onLocationHover={debouncedHandleLocationHover}
+          />
         </GlobeErrorBoundary>
       </Box>
       {selectedPoint && (

@@ -2,36 +2,34 @@
 import { Typography, Button } from '@mui/material';
 import React from 'react';
 
-interface ErrorBoundaryProps {
+interface Props {
   children: React.ReactNode;
   errorMessage?: string;
 }
 
-interface ErrorBoundaryState {
+interface State {
   hasError: boolean;
 }
 
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState;
-  
-  constructor(props: ErrorBoundaryProps) {
+class ErrorBoundary extends React.Component<Props, State> {
+  constructor(props: Props) {
     super(props);
     this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(_: Error): ErrorBoundaryState {
+  static getDerivedStateFromError(): State {
     return { hasError: true };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-    console.log('ErrorBoundary caught an error:', error, errorInfo);
+  componentDidCatch(error: Error, info: React.ErrorInfo): void {
+    console.error('Error:', error, info);
   }
 
   render(): React.ReactNode {
     if (this.state.hasError) {
       return (
-        <div className="text-center mt-8">
-          <Typography variant="h4">
+        <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+          <Typography variant="h5">
             {this.props.errorMessage || 'Something went wrong'}
           </Typography>
           <Button 

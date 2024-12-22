@@ -17,7 +17,7 @@ import {
 } from '@mui/material';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from '@emotion/styled';
 import type { Theme } from '@mui/material/styles';
 import type { SystemStyleObject } from '@mui/system';
@@ -29,6 +29,8 @@ import { formatDate, calculateBMI, getActivityLevel, getEnvironmentalImpact, get
 
 import type { NextPage } from 'next';
 import notificationService from '@/services/CustomNotificationService';
+import { useLoadingTimeout } from '@/hooks/useLoadingTimeout';
+import { LoadingTimeoutError } from '@/components/LoadingTimeoutError';
 
 const AnimatedGlobe = dynamic(() => import('@/components/AnimatedGlobe'), { ssr: false });
 
@@ -48,11 +50,6 @@ const headerBoxStyles: SystemStyleObject<Theme> = {
   alignItems: 'center',
   color: 'white',
   mb: 2
-} as const;
-
-const globeBoxStyles: SystemStyleObject<Theme> = {
-  height: '60vh',
-  minHeight: '400px'
 } as const;
 
 const paperStyles: SystemStyleObject<Theme> = {
@@ -92,6 +89,11 @@ const GlobePage: NextPage = () => {
   const router = useRouter();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
+  const hasTimedOut = useLoadingTimeout({ 
+    isLoading: healthLoading || authLoading,
+    timeoutMs: 15000 // 15 seconds for globe since it's more complex
+  });
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -100,6 +102,10 @@ const GlobePage: NextPage = () => {
       notificationService.initializeNotifications(user, user.token).catch(console.error);
     }
   }, [authLoading, user, router]);
+
+  if (hasTimedOut) {
+    return <LoadingTimeoutError message="Loading the health globe is taking longer than expected." />;
+  }
 
   if (authLoading || healthLoading) {
     return (
@@ -136,15 +142,24 @@ const GlobePage: NextPage = () => {
 
   return (
     <Box component="main" sx={mainBoxStyles}>
-      <Box sx={headerBoxStyles}>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        marginBottom: '16px',
+        color: 'white'
+      }}>
         <Typography variant="h4">Your Health Globe</Typography>
         <Button variant="contained" onClick={() => fetchHealthData(1)} startIcon={<Refresh />}>Refresh Data</Button>
-      </Box>
+      </div>
 
       <Grid container spacing={3}>
         <Grid item xs={12} md={8}>
           {healthData.length > 0 ? (
-            <Box sx={globeBoxStyles}>
+            <div style={{ 
+              height: '60vh',
+              minHeight: '400px'
+            }}>
               <AnimatedGlobe 
                 onLocationHover={(location: { name: string; country: string; state: string; continent: string; } | null) => {
                   // Handle location hover if needed
@@ -155,11 +170,17 @@ const GlobePage: NextPage = () => {
                   console.log('Point selected:', point);
                 }}
               />
-            </Box>
+            </div>
           ) : (
-            <Box sx={globeBoxStyles} display="flex" justifyContent="center" alignItems="center">
+            <div style={{ 
+              height: '60vh',
+              minHeight: '400px',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center'
+            }}>
               <Typography variant="h6" color="white">No health data available. Start tracking to see your globe!</Typography>
-            </Box>
+            </div>
           )}
         </Grid>
         <Grid item xs={12} md={4}>

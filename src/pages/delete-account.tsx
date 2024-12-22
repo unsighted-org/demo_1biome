@@ -1,9 +1,11 @@
 import { Warning, CheckCircle } from '@mui/icons-material';
 import { Box, TextField, Button, Typography, Alert, Container, Paper, CircularProgress, List, ListItem, ListItemIcon, ListItemText } from '@mui/material';
 import { useRouter } from 'next/router';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { useLoadingTimeout } from '@/hooks/useLoadingTimeout';
+import { LoadingTimeoutError } from '@/components/LoadingTimeoutError';
 
 const DeleteAccountPage: React.FC = () => {
   const [password, setPassword] = useState('');
@@ -12,6 +14,11 @@ const DeleteAccountPage: React.FC = () => {
   const [isDeleted, setIsDeleted] = useState(false);
   const { deleteAccount, signOut } = useAuth();
   const router = useRouter();
+
+  const hasTimedOut = useLoadingTimeout({ 
+    isLoading: isLoading || false,
+    timeoutMs: 10000 // 10 seconds for account deletion
+  });
 
   const handleDeleteAccount = async (e: React.FormEvent): Promise<void> => {
       e.preventDefault();
@@ -37,86 +44,108 @@ const DeleteAccountPage: React.FC = () => {
     router.push('/settings');
   };
 
+  useEffect(() => {
+    if (hasTimedOut) {
+      setError('Account deletion is taking longer than expected.');
+    }
+  }, [hasTimedOut]);
+
   if (isDeleted) {
     return (
       <Container component="main" maxWidth="xs">
-        <Paper elevation={3} sx={{ p: 4, mt: 4 }}>
-          <Typography variant="h4" component="h1" gutterBottom>
-            Account Deleted
-          </Typography>
-          <Alert severity="success" sx={{ mb: 2 }}>
-            Your account has been marked for deletion. You will be logged out and redirected to the home page in 5 seconds.
-          </Alert>
+        <Paper elevation={3} className="card-container m-4">
+          <div className="flex-column gap-2">
+            <Typography component="h1" variant="h5">
+              Account Deleted
+            </Typography>
+            <Alert severity="success" className="m-2">
+              Your account has been successfully deleted.
+            </Alert>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => router.push('/')}
+              className="m-2"
+            >
+              Return to Home
+            </Button>
+          </div>
         </Paper>
       </Container>
     );
   }
 
+  if (hasTimedOut) {
+    return <LoadingTimeoutError 
+      message="Account deletion is taking longer than expected." 
+      onRetry={() => setIsLoading(false)}
+    />;
+  }
+
   return (
     <Container component="main" maxWidth="xs">
-      <Paper elevation={3} sx={{ p: 4, mt: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Delete Account
-        </Typography>
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          Warning: Your account will be marked for deletion. You can recover it within 7 days by logging in.
-        </Alert>
-        <Typography variant="subtitle1" gutterBottom>
-          Consequences of account deletion:
-        </Typography>
-        <List>
-          <ListItem>
-            <ListItemIcon>
-              <Warning color="error" />
-            </ListItemIcon>
-            <ListItemText primary="All your personal data will be removed" />
-          </ListItem>
-          <ListItem>
-            <ListItemIcon>
-              <Warning color="error" />
-            </ListItemIcon>
-            <ListItemText primary="You will lose access to all your health records" />
-          </ListItem>
-          <ListItem>
-            <ListItemIcon>
-              <CheckCircle color="primary" />
-            </ListItemIcon>
-            <ListItemText primary="You can recover your account within 7 days by logging in" />
-          </ListItem>
-        </List>
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-        <Box component="form" onSubmit={handleDeleteAccount} sx={{ mt: 1 }}>
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            name="password"
-            label="Confirm Password"
-            type="password"
-            id="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            color="error"
-            sx={{ mt: 3, mb: 2 }}
-            disabled={isLoading}
-          >
-            {isLoading ? <CircularProgress size={24} color="inherit" /> : 'Delete Account'}
-          </Button>
-          <Button
-            fullWidth
-            variant="outlined"
-            onClick={handleCancel}
-            sx={{ mt: 1, mb: 2 }}
-          >
-            Cancel
-          </Button>
-        </Box>
+      <Paper elevation={3} className="card-container m-4">
+        <div className="flex-column gap-2">
+          <Typography component="h1" variant="h5">
+            Delete Account
+          </Typography>
+          <Alert severity="warning" className="m-2">
+            Warning: This action cannot be undone. Please be certain.
+          </Alert>
+          <List>
+            <ListItem>
+              <ListItemIcon>
+                <Warning color="warning" />
+              </ListItemIcon>
+              <ListItemText primary="All your data will be permanently deleted" />
+            </ListItem>
+            <ListItem>
+              <ListItemIcon>
+                <Warning color="warning" />
+              </ListItemIcon>
+              <ListItemText primary="You will lose access to all your health insights" />
+            </ListItem>
+            <ListItem>
+              <ListItemIcon>
+                <Warning color="warning" />
+              </ListItemIcon>
+              <ListItemText primary="Your account cannot be recovered after deletion" />
+            </ListItem>
+          </List>
+          {error && <Alert severity="error" className="m-2">{error}</Alert>}
+          <form onSubmit={handleDeleteAccount} className="flex-column gap-3">
+            <TextField
+              required
+              fullWidth
+              name="password"
+              label="Confirm Password"
+              type="password"
+              id="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="m-2"
+            />
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              color="error"
+              disabled={isLoading}
+              className="m-3"
+            >
+              {isLoading ? <CircularProgress size={24} /> : 'Delete My Account'}
+            </Button>
+            <Button
+              fullWidth
+              variant="outlined"
+              onClick={() => router.push('/settings')}
+              className="m-2"
+            >
+              Cancel
+            </Button>
+          </form>
+        </div>
       </Paper>
     </Container>
   );

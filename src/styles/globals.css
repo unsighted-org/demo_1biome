@@ -267,7 +267,6 @@ a {
   margin-bottom: 1rem;
 }
 
-
 .chart-container {
   flex: 1;
   min-height: 300px;
@@ -284,7 +283,6 @@ a {
     align-items: stretch;
   }
 }
-
 
 /* Add these new styles for the geospatial mapping component */
 .map-container {
@@ -354,7 +352,6 @@ a {
   }
 }
 
-
 .geospatial-chart-overlay {
   position: absolute;
   top: 0;
@@ -375,3 +372,113 @@ a {
   width: 100%;
   height: 100%;
 }
+
+/* Box Layouts */
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flex-column {
+  display: flex;
+  flex-direction: column;
+}
+
+.flex-row {
+  display: flex;
+  flex-direction: row;
+}
+
+.flex-grow {
+  flex-grow: 1;
+}
+
+/* Common Box Containers */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 50vh;
+  width: 100%;
+  text-align: center;
+}
+
+.error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 50vh;
+  width: 100%;
+  text-align: center;
+  padding: 2rem;
+}
+
+.page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+  width: 100%;
+}
+
+.card-container {
+  padding: 1.5rem;
+  margin: 1rem 0;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Responsive Containers */
+@media (max-width: 600px) {
+  .page-container {
+    padding: 1rem;
+  }
+  
+  .card-container {
+    padding: 1rem;
+    margin: 0.5rem 0;
+  }
+}
+
+/* Utility Classes */
+.full-width {
+  width: 100%;
+}
+
+.full-height {
+  height: 100%;
+}
+
+.relative {
+  position: relative;
+}
+
+.absolute {
+  position: absolute;
+}
+
+.overflow-hidden {
+  overflow: hidden;
+}
+
+/* Spacing Utilities */
+.m-1 { margin: 0.25rem; }
+.m-2 { margin: 0.5rem; }
+.m-3 { margin: 1rem; }
+.m-4 { margin: 1.5rem; }
+.m-5 { margin: 2rem; }
+
+.p-1 { padding: 0.25rem; }
+.p-2 { padding: 0.5rem; }
+.p-3 { padding: 1rem; }
+.p-4 { padding: 1.5rem; }
+.p-5 { padding: 2rem; }
+
+/* Gap Utilities */
+.gap-1 { gap: 0.25rem; }
+.gap-2 { gap: 0.5rem; }
+.gap-3 { gap: 1rem; }
+.gap-4 { gap: 1.5rem; }
+.gap-5 { gap: 2rem; }

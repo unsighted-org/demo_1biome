@@ -5,6 +5,8 @@ import { useAppSelector } from '@/store';
 import { useHealth } from '@/contexts/HealthContext';
 import DashboardErrorBoundary from '../components/DashboardWithErrorBoundary';
 import { MAX_PAGES } from '@/constants';
+import { useLoadingTimeout } from '@/hooks/useLoadingTimeout';
+import { LoadingTimeoutError } from '@/components/LoadingTimeoutError';
 
 const ProfilePage: React.FC = () => {
   const router = useRouter();
@@ -12,6 +14,11 @@ const ProfilePage: React.FC = () => {
   const [pageNumber, setPageNumber] = useState(1);
   const { loading, error, fetchHealthData } = useHealth();
   const { data: healthData, scores: healthScores, regionalComparison } = useAppSelector((state) => state.health);
+
+  const hasTimedOut = useLoadingTimeout({ 
+    isLoading: authLoading,
+    timeoutMs: 5000 // 5 seconds for profile load
+  });
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -30,6 +37,10 @@ const ProfilePage: React.FC = () => {
       setPageNumber(newPage);
     }
   };
+
+  if (hasTimedOut) {
+    return <LoadingTimeoutError message="Loading profile data is taking longer than expected." />;
+  }
 
   if (authLoading || loading) {
     return <div>Loading...</div>;
